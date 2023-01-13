@@ -7,9 +7,47 @@ from sklearn.decomposition import PCA
 MINS_IN_DAY = 1440
 
 
-# Helper to perform compression on user data, TODO
+# function that calculates z scores for a list of values
+# this has to be done on the final thing (i.e. the last dataframe)
+def calc_z_scores(lst):
+
+    return lst
+
+
+# Helper to process user data TODO: compression e.g. PCA
 def process_user_info(data):
-    return data
+
+    # takes in a dictionary
+    # returns x different dictionaries - 2 for weekends, 5 for weekdays
+    # whether data is weekday or weekend is inferred in the code
+
+    # step 1: determine whether this is a weekday or a weekend
+    seen = []  # seen is the number of distinct days
+    for name, [value] in data.items():
+        bin_day = name.split('-')[1]  # day is the second part
+        if bin_day in seen:
+            break
+        seen.append(bin_day)
+    days = len(seen)
+
+
+    # step 2: iterate through data and append it to the correct day's info
+    days_info = [{} for _ in range(days)]
+
+    # iterate through user data
+    for name, [value] in data.items():
+        bin_info = name.split('-')
+        app_name = bin_info[0]
+        bin_day = int(bin_info[1]) % 5  # weekends are 5 and 6 --> turning those into 0 and 1 (weekdays not affected)
+        bin_number = bin_info[2]
+
+        old_dict = days_info[bin_day]
+        new_name = app_name + '-' + bin_number  # omit the day (its per-day now)
+        old_dict[new_name] = value
+        days_info[bin_day] = old_dict
+
+
+    return days_info
 
 
 # small helper func to add on new_data to input_df
@@ -26,8 +64,6 @@ if __name__ == "__main__":
 
     input = pd.read_csv('EveryonesAppData.csv')
 
-    # temporary cropping
-    # input = input.iloc[:10]
 
     # first step: identify all the apps
     all_apps = sorted(list(set(input['event'])))  # sorting for consistency
@@ -45,7 +81,7 @@ if __name__ == "__main__":
     # all time bins - split into weekdays and weekends
     # granularity of time bins is determined by the time_gran variable (min)
 
-    time_gran = 1440  # e.g. an hour (60 min)
+    time_gran = 1440  # e.g. a day (1440 min)
     no_bins = MINS_IN_DAY // time_gran
     weekend_bins = []
     weekday_bins = []
@@ -84,6 +120,9 @@ if __name__ == "__main__":
             users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict)
             users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict)
 
+            if curr_user is not None:
+                break
+
             # set the rolling parameters for the new user
             curr_user = user
             curr_user_weekday_dict = {b: [0] for b in weekday_bins}
@@ -100,6 +139,9 @@ if __name__ == "__main__":
         # create bin name
         bin_name = app + '-' + str(curr_event_day) + '-' + str(curr_event_bin)
 
+
+        # TODO: if there are 2 Mondays, the user's data for Monday will get padded up!
+        # I need to treat each day as a completely separate thing
         if curr_event_day in [5, 6]:  # weekend
             new_duration = curr_user_weekend_dict.get(bin_name, [0])[0] + duration
             curr_user_weekend_dict[bin_name] = [new_duration]
@@ -108,23 +150,24 @@ if __name__ == "__main__":
             curr_user_weekday_dict[bin_name] = [new_duration]
 
     # updating info of the last user
-    users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict)
-    users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict)
+    # TODO: uncomment!!!
+    # users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict)
+    # users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict)
 
     # ensure no NaNs are present - might be redundant
     users_weekday_df.fillna(0)  # temporary code
     users_weekend_df.fillna(0)  # temporary code
 
     # apply PCA - potential alternatives: multi dimensional scaling (MDS)/t-sne plot
-    users_df_cols = users_weekday_df.columns
-    data = users_weekday_df.to_numpy()
+    # users_df_cols = users_weekday_df.columns
+    # data = users_weekday_df.to_numpy()
     # issue: the input (data) seems to have NaNs, idk how it happened, but turn it into 0s
-    pca = PCA(n_components=46)  # TODO: PCA on per user stuff, so each user's day matrix looks different than before
-    pca.fit(data)
-    new_data = pca.singular_values_
+    # pca = PCA(n_components=46)  # TODO: PCA on per user stuff, so each user's day matrix looks different than before
+    # pca.fit(data)
+    # new_data = pca.singular_values_
 
-    compressed_df = pd.DataFrame(data=new_data)
-    compressed_df.fillna(0)
+    # compressed_df = pd.DataFrame(data=new_data)
+    # compressed_df.fillna(0)
 
     # users_weekday_df = compressed_df  # to save the compressed version
 
