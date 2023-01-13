@@ -79,7 +79,7 @@ def update_df(input_df, new_data, user_number):
     new_data, days = process_user_info(new_data)
 
     tuples = [(user_number, day) for day in days]
-    index = pd.MultiIndex.from_tuples(tuples, names=["User", "Day"])
+    index = pd.MultiIndex.from_tuples(tuples, names=["Person", "Day"])
 
     new_df = pd.DataFrame(data=new_data, index=index)
 
