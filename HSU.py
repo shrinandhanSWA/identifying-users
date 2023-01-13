@@ -7,57 +7,83 @@ from sklearn.decomposition import PCA
 MINS_IN_DAY = 1440
 
 
-# function that calculates z scores for a list of values
-# this has to be done on the final thing (i.e. the last dataframe)
-def calc_z_scores(lst):
+# function that calculates z scores for each column of the dataframe
+def calc_z_scores(df):
 
-    return lst
+    for col_name in df:
+        col = df[col_name]
+        avg = col.mean()
+        std = col.std()
+
+        col = col.apply(lambda x: (x - avg) / std if std != 0 else 0)
+
+        df[col_name] = col
+
+    return df
 
 
 # Helper to process user data TODO: compression e.g. PCA
+# pca = PCA(n_components=46)  # PCA sample code
+# pca.fit(data)
+# new_data = pca.singular_values_
 def process_user_info(data):
 
     # takes in a dictionary
     # returns x different dictionaries - 2 for weekends, 5 for weekdays
     # whether data is weekday or weekend is inferred in the code
 
-    # step 1: determine whether this is a weekday or a weekend
-    seen = []  # seen is the number of distinct days
-    for name, [value] in data.items():
-        bin_day = name.split('-')[1]  # day is the second part
-        if bin_day in seen:
-            break
-        seen.append(bin_day)
-    days = len(seen)
-
-
-    # step 2: iterate through data and append it to the correct day's info
-    days_info = [{} for _ in range(days)]
+    days_info = []
+    curr_day = -1
+    curr_day_info = {}
+    days = []
 
     # iterate through user data
     for name, [value] in data.items():
         bin_info = name.split('-')
         app_name = bin_info[0]
-        bin_day = int(bin_info[1]) % 5  # weekends are 5 and 6 --> turning those into 0 and 1 (weekdays not affected)
+        bin_day = int(bin_info[1])
         bin_number = bin_info[2]
 
-        old_dict = days_info[bin_day]
+        if bin_day != curr_day:
+            if curr_day != -1:  # curr_day only -1 at the start
+                days.append(f'Day{curr_day + 1}')
+                days_info.append(curr_day_info)
+                curr_day_info = {}
+            curr_day = bin_day
+
         new_name = app_name + '-' + bin_number  # omit the day (its per-day now)
-        old_dict[new_name] = value
-        days_info[bin_day] = old_dict
+        curr_day_info[new_name] = value
+
+    days_info.append(curr_day_info)
+    days.append(f'Day{curr_day + 1}')
+
+    return days_info, days
 
 
-    return days_info
+# helper to create empty bins for the given inputs
+# these bins are appended onto ori_dict
+# apps: list, bins: number (of bins), day: string (0, 1, etc.)
+def create_bins(ori_dict, apps, bins, day):
+
+    for app in apps:
+        for time in range(bins):
+            bin_name = app + '-' + str(day) + '-Bin' + str(time + 1)
+            ori_dict[bin_name] = [0]
+
+    return ori_dict
 
 
 # small helper func to add on new_data to input_df
-def update_df(input_df, new_data):
+def update_df(input_df, new_data, user_number):
     # process new_data (this is the user's data for all the days)
-    new_data = process_user_info(new_data)
+    new_data, days = process_user_info(new_data)
 
-    new_df = pd.DataFrame(data=new_data)
+    tuples = [(user_number, day) for day in days]
+    index = pd.MultiIndex.from_tuples(tuples, names=["User", "Day"])
 
-    return pd.concat([input_df, new_df], ignore_index=True)
+    new_df = pd.DataFrame(data=new_data, index=index)
+
+    return pd.concat([input_df, new_df], ignore_index=False)  # Might need to change to true
 
 
 if __name__ == "__main__":
@@ -83,23 +109,14 @@ if __name__ == "__main__":
 
     time_gran = 1440  # e.g. a day (1440 min)
     no_bins = MINS_IN_DAY // time_gran
-    weekend_bins = []
-    weekday_bins = []
-    for app in all_apps:
-        for time in range(no_bins):
-            for day in range(7):  # day 0: monday, ..., day 6: sunday
-                bin_name = app + '-' + str(day) + '-' + str(time)
-                if day < 5:
-                    weekday_bins.append(bin_name)
-                else:
-                    weekend_bins.append(bin_name)
 
     # helper variables
     curr_user = None
     curr_user_weekday_dict = {}
     curr_user_weekend_dict = {}
-    curr_user_start_day = 0
+    curr_user_curr_day = 0
     curr_user_day_count = 0
+    user_count = 1
 
     # overall dataframe for all users (will be built up) - weekday and weekend info separated
     users_weekday_df = pd.DataFrame(data=curr_user_weekday_dict)
@@ -117,19 +134,37 @@ if __name__ == "__main__":
 
         if user != curr_user:
             # moved on to next user, so save previous user's information
-            users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict)
-            users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict)
-
             if curr_user is not None:
-                break
+                users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict, user_count)
+                users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count)
+                user_count += 1
+
 
             # set the rolling parameters for the new user
             curr_user = user
-            curr_user_weekday_dict = {b: [0] for b in weekday_bins}
-            curr_user_weekend_dict = {b: [0] for b in weekend_bins}
+            curr_user_weekday_dict = {}
+            curr_user_weekend_dict = {}
+            curr_user_curr_time = datetime.fromtimestamp(int(timestamp))
+            curr_user_curr_day = curr_user_curr_time.day
+            curr_user_day_count = 0
+
+            if datetime.weekday(curr_user_curr_time) in [5, 6]:
+                curr_user_weekend_dict = create_bins(curr_user_weekend_dict, all_apps, no_bins, curr_user_day_count)
+            else:
+                curr_user_weekday_dict = create_bins(curr_user_weekday_dict, all_apps, no_bins, curr_user_day_count)
 
         # calculate day and hour of this event
         curr_event_time = datetime.fromtimestamp(int(timestamp))
+
+        # check if a new day has been reached
+        if curr_event_time.day != curr_user_curr_day:
+            curr_user_curr_day = curr_event_time.day
+            curr_user_day_count += 1
+            if datetime.weekday(curr_event_time) in [5, 6]:
+                curr_user_weekend_dict = create_bins(curr_user_weekend_dict, all_apps, no_bins, curr_user_day_count)
+            else:
+                curr_user_weekday_dict = create_bins(curr_user_weekday_dict, all_apps, no_bins, curr_user_day_count)
+
         curr_event_day = datetime.weekday(curr_event_time)
 
         # determine which time bin the current time is in
@@ -137,11 +172,8 @@ if __name__ == "__main__":
         curr_event_bin = curr_event_min // time_gran
 
         # create bin name
-        bin_name = app + '-' + str(curr_event_day) + '-' + str(curr_event_bin)
+        bin_name = app + '-' + str(curr_user_day_count) + '-Bin' + str(curr_event_bin + 1)
 
-
-        # TODO: if there are 2 Mondays, the user's data for Monday will get padded up!
-        # I need to treat each day as a completely separate thing
         if curr_event_day in [5, 6]:  # weekend
             new_duration = curr_user_weekend_dict.get(bin_name, [0])[0] + duration
             curr_user_weekend_dict[bin_name] = [new_duration]
@@ -150,26 +182,14 @@ if __name__ == "__main__":
             curr_user_weekday_dict[bin_name] = [new_duration]
 
     # updating info of the last user
-    # TODO: uncomment!!!
-    # users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict)
-    # users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict)
+    users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict, user_count)
+    users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count)
 
-    # ensure no NaNs are present - might be redundant
-    users_weekday_df.fillna(0)  # temporary code
-    users_weekend_df.fillna(0)  # temporary code
 
-    # apply PCA - potential alternatives: multi dimensional scaling (MDS)/t-sne plot
-    # users_df_cols = users_weekday_df.columns
-    # data = users_weekday_df.to_numpy()
-    # issue: the input (data) seems to have NaNs, idk how it happened, but turn it into 0s
-    # pca = PCA(n_components=46)  # TODO: PCA on per user stuff, so each user's day matrix looks different than before
-    # pca.fit(data)
-    # new_data = pca.singular_values_
+    # OPTIONAL: calculate z-scores for each column
+    users_weekday_df = calc_z_scores(users_weekday_df)
+    users_weekend_df = calc_z_scores(users_weekend_df)
 
-    # compressed_df = pd.DataFrame(data=new_data)
-    # compressed_df.fillna(0)
-
-    # users_weekday_df = compressed_df  # to save the compressed version
 
     print('saving to CSV')
 
