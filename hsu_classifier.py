@@ -1,60 +1,71 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+
 
 INPUT_WEEKDAY = 'output_weekday.csv'
-INPUT_WEEKEND = 'output_weekend.csv'
+INPUT_TEST = 'TimeBehavProf46.csv'
 
-POP_APPS = ['Calculator', 'Calendar', 'Camera', 'Clock', 'Contacts', 'Facebook',
-            'Gallery', 'Gmail', 'Google Play Store', 'Google Search', 'Instagram',
-            'Internet', 'Maps', 'Messaging', 'Messanger', 'Phone', 'Photos',
-            'Settings', 'Twitter', 'WhatsApp', 'YouTube']
-DAYS = 7
-HOURS = 7
 
 # weekday classifier
 def weekday_classifier():
 
     # load data from CSV
     print('loading data...')
-    input_df = pd.read_csv(INPUT_WEEKDAY)
+    input_df = pd.read_csv(INPUT_TEST)
 
-    # shuffle and split data
+    # split data into training and test set
+    # for now, test set will contain one entry for every person
     print('splitting data...')
+    training_set = []
+    test_set = []
+    training_labels = []
+    test_labels = []
 
-    # users are the class(y label) - time information is the x label
-    users_df = input_df.reset_index()
-    users_df.rename({'Unnamed: 0': 'User'}, axis=1, inplace=True)
+    # to be used later
+    cols = input_df.columns
 
-    df_cols = users_df.columns # extracting columns, lost in the for loop
+    info = input_df.iloc[:, 2:]
+    idx = input_df.iloc[:, :2]
 
-    # training and testing dataframes
-    train_df = None
-    test_df = None
+    curr_person = 0
 
-    # unwrap dataframe - original one has entire day split (I will split the same for now)
-    for row in users_df.itertuples():
-        # for each app, the first 96 entries are training and the last 24 are testing
-        for i in range(0, 2520, 120):
-            continue
-        break
+    # iterate through the processed data
+    for id, inf in zip(idx.itertuples(), info.itertuples()):
 
-    # X_train, X_test, y_train, y_test = train_test_split(train.drop('Survived', axis=1),
-    #                                                     train['Survived'], test_size=0.30,
-    #                                                     random_state=101)
+        person = id.Person
+        if person != curr_person:
+            curr_person = person
+            test_labels.append(person)
+            test_set.append(list(np.array(inf)))
+        else:
+            training_labels.append(person)
+            training_set.append(list(np.array(inf)))
 
-    # print('processing data')
-    #
-    # print('training classifier')
-    #
-    # print('testing classifier')
-    #
-    # print('accuracies:')
+    # convert everything to numpy arrays
+    training_set = np.array(training_set)
+    training_labels = np.array(training_labels)
+    test_set = np.array(test_set)
+    test_labels = np.array(test_labels)
+
+
+    print('training classifier')
+    rf = RandomForestRegressor(n_estimators=3120)  # original one used 3120 trees
+    rf.fit(training_set, training_labels)
+
+    print('testing classifier')
+    predictions = rf.predict(test_set)
+
+    # round the predictions off
+    predictions = np.round(predictions)
+
+    N = test_labels.shape[0]
+    accuracy = (test_labels == predictions).sum() / N
+
+    print(f'accuracy is {accuracy*100}%')
 
     print('done')
 
-# weekend classifier
-def weekend_classifer():
-    return
 
 if __name__ == '__main__':
 
