@@ -36,6 +36,7 @@ def process_user_info(data):
     curr_day = -1
     curr_day_info = {}
     days = []
+    day_counter = 1
 
     # iterate through user data
     for name, [value] in data.items():
@@ -46,7 +47,9 @@ def process_user_info(data):
 
         if bin_day != curr_day:
             if curr_day != -1:  # curr_day only -1 at the start
-                days.append(f'Day{curr_day + 1}')
+                # days.append(f'Day{curr_day + 1}')
+                days.append(f'Day{day_counter}')
+                day_counter += 1
                 days_info.append(curr_day_info)
                 curr_day_info = {}
             curr_day = bin_day
@@ -55,7 +58,8 @@ def process_user_info(data):
         curr_day_info[new_name] = value
 
     days_info.append(curr_day_info)
-    days.append(f'Day{curr_day + 1}')
+    # days.append(f'Day{curr_day + 1}')
+    days.append(f'Day{day_counter}')
 
     return days_info, days
 
