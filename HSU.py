@@ -133,7 +133,7 @@ if __name__ == "__main__":
         app = row.event.strip()
         duration = row.duration
 
-        if app not in pop_apps:
+        if app not in all_apps:
             continue
 
         if user != curr_user:
