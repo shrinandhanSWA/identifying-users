@@ -5,11 +5,11 @@ from sklearn.ensemble import RandomForestRegressor
 
 INPUT_WEEKDAY = 'output_weekday.csv'
 INPUT_TEST = 'TimeBehavProf46.csv'
+INPUT = 'TimeBehavProf.csv'
 
 
 # weekday classifier
 def weekday_classifier():
-
     # load data from CSV
     print('loading data...')
     input_df = pd.read_csv(INPUT_TEST)
@@ -28,19 +28,28 @@ def weekday_classifier():
     info = input_df.iloc[:, 2:]
     idx = input_df.iloc[:, :2]
 
-    curr_person = 0
-
     # iterate through the processed data
-    for id, inf in zip(idx.itertuples(), info.itertuples()):
+    for id, inf in zip(idx.itertuples(), info.itertuples(index=False)):
 
-        person = id.Person
-        if person != curr_person:
-            curr_person = person
-            test_labels.append(person)
+        # Day 1 --> testing, other days --> training
+        day = id.Day
+        if day == 'Day1':
+            test_labels.append(id.Person)
             test_set.append(list(np.array(inf)))
         else:
-            training_labels.append(person)
+            training_labels.append(id.Person)
             training_set.append(list(np.array(inf)))
+
+
+        # splitting data in the same way as the original analysis
+        # day = id.Day
+        # if day in ['Day1', 'Day2', 'Day3', 'Day4', 'Day5', 'Day6']:
+        #     training_labels.append(id.Person)
+        #     training_set.append(list(np.array(inf)))
+        # elif day == 'Day7':
+        #     test_labels.append(id.Person)
+        #     test_set.append(list(np.array(inf)))
+
 
     # convert everything to numpy arrays
     training_set = np.array(training_set)
@@ -48,12 +57,21 @@ def weekday_classifier():
     test_set = np.array(test_set)
     test_labels = np.array(test_labels)
 
+    # Shuffling training data
+    seed = np.random.randint(0, 10000)
+    np.random.seed(seed)
+    np.random.shuffle(training_set)
+    np.random.seed(seed)
+    np.random.shuffle(training_labels)
 
-    print('training classifier')
-    rf = RandomForestRegressor(n_estimators=3120)  # original one used 3120 trees
+
+    print('training classifier...')
+    rf = RandomForestRegressor(n_estimators=3120)
+    # original analysis used 3120 trees (n_estimators)
+
     rf.fit(training_set, training_labels)
 
-    print('testing classifier')
+    print('testing classifier...')
     predictions = rf.predict(test_set)
 
     # round the predictions off
