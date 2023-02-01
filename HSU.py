@@ -47,7 +47,6 @@ def process_user_info(data):
 
         if bin_day != curr_day:
             if curr_day != -1:  # curr_day only -1 at the start
-                # days.append(f'Day{curr_day + 1}')
                 days.append(f'Day{day_counter}')
                 day_counter += 1
                 days_info.append(curr_day_info)
@@ -58,7 +57,6 @@ def process_user_info(data):
         curr_day_info[new_name] = value
 
     days_info.append(curr_day_info)
-    # days.append(f'Day{curr_day + 1}')
     days.append(f'Day{day_counter}')
 
     return days_info, days
@@ -90,28 +88,32 @@ def update_df(input_df, new_data, user_number):
     return pd.concat([input_df, new_df], ignore_index=False)  # Might need to change to true
 
 
-if __name__ == "__main__":
+# function that processes HSU data with the given arguments
+def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_score=True):
+
 
     input = pd.read_csv('EveryonesAppData.csv')
-
 
     # first step: identify all the apps
     all_apps = sorted(list(set(input['event'])))  # sorting for consistency
     # removing leading spaces
     all_apps = [x.strip() for x in all_apps]
 
-    # popular apps
-    pop_apps = ['Calculator', 'Calendar', 'Camera', 'Clock', 'Contacts', 'Facebook',
-                'Gallery', 'Gmail', 'Google Play Store', 'Google Search', 'Instagram',
-                'Internet', 'Maps', 'Messaging', 'Messenger', 'Phone', 'Photos',
-                'Settings', 'Twitter', 'WhatsApp', 'YouTube']
 
-    all_apps = pop_apps  # popular apps only (for testing)
+    # only consider the most popular apps (defined below)
+    if pop_apps_only:
+        # popular apps
+        pop_apps = ['Calculator', 'Calendar', 'Camera', 'Clock', 'Contacts', 'Facebook',
+                    'Gallery', 'Gmail', 'Google Play Store', 'Google Search', 'Instagram',
+                    'Internet', 'Maps', 'Messaging', 'Messenger', 'Phone', 'Photos',
+                    'Settings', 'Twitter', 'WhatsApp', 'YouTube']
 
-    # all time bins - split into weekdays and weekends
-    # granularity of time bins is determined by the time_gran variable (min)
+        all_apps = pop_apps
 
-    time_gran = 1440  # e.g. a day (1440 min)
+
+    # all time bins - split into weekdays and weekends if required
+    # granularity of time bins is determined by the time_gran variable (in min)
+
     no_bins = MINS_IN_DAY // time_gran
 
     # helper variables
@@ -125,6 +127,11 @@ if __name__ == "__main__":
     # overall dataframe for all users (will be built up) - weekday and weekend info separated
     users_weekday_df = pd.DataFrame(data=curr_user_weekday_dict)
     users_weekend_df = pd.DataFrame(data=curr_user_weekend_dict)
+
+    # this variable determines which days are weekends
+    # if weekdays_split is true, this results in 2 CSVs (weekday and weekend)
+    # otherwise, one combined CSV is produced (with all days)
+    weekend_days = [5, 6] if weekdays_split else []
 
     # iterate through all the inputs
     for row in input.itertuples():
@@ -143,7 +150,6 @@ if __name__ == "__main__":
                 users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count)
                 user_count += 1
 
-
             # set the rolling parameters for the new user
             curr_user = user
             curr_user_weekday_dict = {}
@@ -152,7 +158,7 @@ if __name__ == "__main__":
             curr_user_curr_day = curr_user_curr_time.day
             curr_user_day_count = 0
 
-            if datetime.weekday(curr_user_curr_time) in [5, 6]:
+            if datetime.weekday(curr_user_curr_time) in weekend_days:
                 curr_user_weekend_dict = create_bins(curr_user_weekend_dict, all_apps, no_bins, curr_user_day_count)
             else:
                 curr_user_weekday_dict = create_bins(curr_user_weekday_dict, all_apps, no_bins, curr_user_day_count)
@@ -164,7 +170,7 @@ if __name__ == "__main__":
         if curr_event_time.day != curr_user_curr_day:
             curr_user_curr_day = curr_event_time.day
             curr_user_day_count += 1
-            if datetime.weekday(curr_event_time) in [5, 6]:
+            if datetime.weekday(curr_event_time) in weekend_days:
                 curr_user_weekend_dict = create_bins(curr_user_weekend_dict, all_apps, no_bins, curr_user_day_count)
             else:
                 curr_user_weekday_dict = create_bins(curr_user_weekday_dict, all_apps, no_bins, curr_user_day_count)
@@ -178,7 +184,7 @@ if __name__ == "__main__":
         # create bin name
         bin_name = app + '-' + str(curr_user_day_count) + '-Bin' + str(curr_event_bin + 1)
 
-        if curr_event_day in [5, 6]:  # weekend
+        if curr_event_day in weekend_days:  # weekend
             new_duration = curr_user_weekend_dict.get(bin_name, [0])[0] + duration
             curr_user_weekend_dict[bin_name] = [new_duration]
         else:  # weekday
@@ -189,14 +195,31 @@ if __name__ == "__main__":
     users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict, user_count)
     users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count)
 
-
     # OPTIONAL: calculate z-scores for each column
-    users_weekday_df = calc_z_scores(users_weekday_df)
-    users_weekend_df = calc_z_scores(users_weekend_df)
-
+    if z_score:
+        users_weekday_df = calc_z_scores(users_weekday_df)
+        users_weekend_df = calc_z_scores(users_weekend_df)
 
     print('saving to CSV')
 
     # save both dataframes to separate CSVs
-    users_weekday_df.to_csv('output_weekday.csv')
-    users_weekend_df.to_csv('output_weekend.csv')
+    if weekdays_split:
+        users_weekday_df.to_csv('output_weekday.csv')
+        users_weekend_df.to_csv('output_weekend.csv')
+    else:
+        # if no weekday-weekend split, store output in one CSV file
+        users_weekday_df.to_csv('output.csv')
+
+
+if __name__ == "__main__":
+
+    # set up arguments, then call the function
+    time_bins = 60         # in minutes
+    pop_apps_only = True
+    weekdays_split = False
+    z_scores = True
+
+
+    process_data(time_bins, pop_apps_only, weekdays_split, z_scores)
+
+
