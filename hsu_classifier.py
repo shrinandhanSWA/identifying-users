@@ -3,9 +3,9 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
 
-INPUT_WEEKDAY = 'output_weekday.csv'
-INPUT_TEST = 'TimeBehavProf46.csv'
-INPUT = 'TimeBehavProf.csv'
+INPUT_WEEKDAY = 'csv_files/output_weekday.csv'
+INPUT_TEST = 'csv_files/TimeBehavProf46.csv'
+INPUT = 'csv_files/TimeBehavProf.csv'
 
 
 # weekday classifier

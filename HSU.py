@@ -92,7 +92,7 @@ def update_df(input_df, new_data, user_number):
 def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_score=True):
 
 
-    input = pd.read_csv('EveryonesAppData.csv')
+    input = pd.read_csv('csv_files/EveryonesAppData.csv')
 
     # first step: identify all the apps
     all_apps = sorted(list(set(input['event'])))  # sorting for consistency
@@ -204,17 +204,17 @@ def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_scor
 
     # save both dataframes to separate CSVs
     if weekdays_split:
-        users_weekday_df.to_csv('output_weekday.csv')
-        users_weekend_df.to_csv('output_weekend.csv')
+        users_weekday_df.to_csv('csv_files/output_weekday.csv')
+        users_weekend_df.to_csv('csv_files/output_weekend.csv')
     else:
         # if no weekday-weekend split, store output in one CSV file
-        users_weekday_df.to_csv('output.csv')
+        users_weekday_df.to_csv('csv_files/output.csv')
 
 
 if __name__ == "__main__":
 
     # set up arguments, then call the function
-    time_bins = 60         # in minutes
+    time_bins = 720         # in minutes
     pop_apps_only = True
     weekdays_split = False
     z_scores = True
