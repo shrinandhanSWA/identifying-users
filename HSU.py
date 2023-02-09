@@ -22,11 +22,11 @@ def calc_z_scores(df):
     return df
 
 
-# Helper to process user data TODO: compression e.g. PCA
+# Helper to process user data TODO: compress user daily data
 # pca = PCA(n_components=46)  # PCA sample code
 # pca.fit(data)
 # new_data = pca.singular_values_
-def process_user_info(data, seven_day_lim):
+def process_user_info(data, day_lim):
 
     # takes in a dictionary
     # returns x different dictionaries - 2 for weekends, 5 for weekdays
@@ -53,8 +53,8 @@ def process_user_info(data, seven_day_lim):
                 days_info.append(curr_day_info)
                 curr_day_info = {}
 
-                # ensuring 7 days are not crossed if the 7 day limit is set
-                if seven_day_lim and day_counter > 7:
+                # ensuring limit on day count has not been breached
+                if day_counter > day_lim:
                     limit_hit = True
                     break
             curr_day = bin_day
@@ -83,9 +83,9 @@ def create_bins(ori_dict, apps, bins, day):
 
 
 # small helper func to add on new_data to input_df
-def update_df(input_df, new_data, user_number, seven_day_lim):
+def update_df(input_df, new_data, user_number, day_lim):
     # process new_data (this is the user's data for all the days)
-    new_data, days = process_user_info(new_data, seven_day_lim)
+    new_data, days = process_user_info(new_data, day_lim)
 
     tuples = [(user_number, day) for day in days]
     index = pd.MultiIndex.from_tuples(tuples, names=["Person", "Day"])
@@ -96,7 +96,7 @@ def update_df(input_df, new_data, user_number, seven_day_lim):
 
 
 # function that processes HSU data with the given arguments
-def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_score=True, seven_day_lim=False):
+def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_score=True, day_lim=7):
 
     input = pd.read_csv('csv_files/EveryonesAppData.csv')
 
@@ -152,8 +152,8 @@ def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_scor
         if user != curr_user:
             # moved on to next user, so save previous user's information
             if curr_user is not None:
-                users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict, user_count, seven_day_lim)
-                users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count, seven_day_lim)
+                users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict, user_count, day_lim)
+                users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count, day_lim)
                 user_count += 1
 
             # set the rolling parameters for the new user
@@ -198,8 +198,8 @@ def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_scor
             curr_user_weekday_dict[bin_name] = [new_duration]
 
     # updating info of the last user
-    users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict, user_count, seven_day_lim)
-    users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count, seven_day_lim)
+    users_weekday_df = update_df(users_weekday_df, curr_user_weekday_dict, user_count, day_lim)
+    users_weekend_df = update_df(users_weekend_df, curr_user_weekend_dict, user_count, day_lim)
 
     # OPTIONAL: calculate z-scores for each column
     if z_score:
@@ -222,11 +222,11 @@ if __name__ == "__main__":
     # set up arguments, then call the function
     time_bins = 1440         # in minutes
     pop_apps_only = True
-    weekdays_split = True
+    weekdays_split = False
     z_scores = True
-    seven_day_lim = True    # limit each person to only 7 days of data
+    day_lim = 7    # limit each person to only day_lim days of data
 
 
-    process_data(time_bins, pop_apps_only, weekdays_split, z_scores, seven_day_lim)
+    process_data(time_bins, pop_apps_only, weekdays_split, z_scores, day_lim)
 
 
