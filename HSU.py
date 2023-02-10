@@ -3,28 +3,54 @@ import pandas as pd
 from datetime import datetime
 from tqdm import tqdm
 from sklearn.decomposition import PCA
+from statistics import mean
+import random
 
 MINS_IN_DAY = 1440
 
 
 # function that calculates z scores for each column of the dataframe
 def calc_z_scores(df):
+
+    to_be_removed = []
+
     for col_name in df:
         col = df[col_name]
         avg = col.mean()
         std = col.std()
 
-        col = col.apply(lambda x: (x - avg) / std if std != 0 else 0)
+        # remove column if the column is entirely 0
+        if avg == 0:
+            to_be_removed.append(col_name)
+        else:
+            col = col.apply(lambda x: (x - avg) / std if std != 0 else 0)
+            df[col_name] = col
 
-        df[col_name] = col
+    df = df.drop(columns=to_be_removed)
 
     return df
 
 
 # Given a list of multiple of the same day, return just one final day
-# For now, just takes the first one. TODO: average
+# Currently taking the average across all days
 def process_different_day_info(days):
-    return days[0]
+
+    new_day_info = {}
+
+    for day in days:
+
+        # day is a dictionary
+        for bin, duration in day.items():
+
+            val = new_day_info.get(bin, [])
+            val.append(duration)
+            new_day_info[bin] = val
+
+    # take average
+    for bin, values in new_day_info.items():
+        new_day_info[bin] = mean(values)
+
+    return new_day_info
 
 
 # Helper to process user data TODO: compress user daily data
@@ -40,9 +66,6 @@ def process_user_info(data, day_lim):
 
     for day in range(7):
 
-        if day_count == day_lim:
-            break
-
         day_info = data[day]  # list
 
         if not day_info:
@@ -54,6 +77,14 @@ def process_user_info(data, day_lim):
         days.append(f'Day{day + 1}')
 
         day_count += 1
+
+    # enforce day_lim
+    # TODO: how to sample fairly
+    if day_lim < len(days_info):
+        # pick day_lim random days to include, drop the rest
+        indices = sorted(random.sample(range(len(days_info)), day_lim))
+        days_info = [days_info[i] for i in indices]
+        days = [days[i] for i in indices]
 
 
     return days_info, days
@@ -116,7 +147,7 @@ def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_scor
     # helper variables
     curr_user = None
     curr_user_weekday_dict = {i: [] for i in range(7)}  # {day_of_week --> [per_day_info_dicts]}
-    curr_user_weekend_dict = {i: [] for i in range(7)}  # there will be a MAX of 3 weekends
+    curr_user_weekend_dict = {i: [] for i in range(7)}
     curr_user_curr_day = 0
     user_count = 1
 
@@ -162,7 +193,8 @@ def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_scor
         # calculate day and hour of this event
         curr_event_time = datetime.fromtimestamp(int(timestamp))
 
-        # check if a new day has been reachedZ
+        # check if a new day has been reached
+
         if curr_event_time.day != curr_user_curr_day:
             curr_user_curr_day = curr_event_time.day
             day_of_week = datetime.weekday(curr_event_time)
@@ -213,8 +245,8 @@ if __name__ == "__main__":
     # set up arguments, then call the function
     time_bins = 1440  # in minutes
     pop_apps_only = True
-    weekdays_split = True
-    z_scores = False
-    day_lim = 7  # limit each person to only day_lim days of data
+    weekdays_split = False
+    z_scores = True
+    day_lim = 6  # limit each person to only day_lim days of data
 
     process_data(time_bins, pop_apps_only, weekdays_split, z_scores, day_lim)
