@@ -6,8 +6,10 @@ from sklearn.decomposition import PCA
 from statistics import mean
 import random
 
-MINS_IN_DAY = 1440
 
+MINS_IN_DAY = 1440
+WEEKEND_SELECTED = ['Day6']  # 7 (sunday) left out
+WEEKDAY_SELECTED = ['Day1', 'Day2', 'Day3']  # Day not here is omitted
 
 # function that calculates z scores for each column of the dataframe
 def calc_z_scores(df):
@@ -62,7 +64,6 @@ def process_user_info(data, day_lim):
 
     days = []
     days_info = []
-    day_count = 0  # just used for limit breaching check
 
     for day in range(7):
 
@@ -76,13 +77,31 @@ def process_user_info(data, day_lim):
         days_info.append(final_day_info)
         days.append(f'Day{day + 1}')
 
-        day_count += 1
 
     # enforce day_lim
-    # TODO: how to sample fairly
+    # idea 1: remove 1 weekend and 1 weekday (or ig other removed days would be weekdays)
+    # idea 2: remove 2 weekdays always (ig for weekends and weekdays together)
     if day_lim < len(days_info):
-        # pick day_lim random days to include, drop the rest
-        indices = sorted(random.sample(range(len(days_info)), day_lim))
+
+        # indices = None
+
+        # idea 1:
+        if len(days) == 7:
+            # in this case, the raw data is a combination of weekdays and weekends
+            # for this scenario, remove sunday and thursday (randomly chosen for consistency)
+            indices = [i for i in range(7) if days[i] in WEEKEND_SELECTED or days[i] in WEEKDAY_SELECTED]
+        elif len(days) == 5:
+            # in this case, the raw data has been separated, and this is the weekdays data
+            # for this scenario, randomly sample day_lim weekdays/weekends
+            indices = [i for i in range(5) if days[i] in WEEKDAY_SELECTED]
+        else:
+            # in this case, the raw data has been separated, and this is the weekends data
+            # for this scenario, randomly sample day_lim weekdays/weekends
+            indices = [i for i in range(2) if days[i] in WEEKEND_SELECTED]
+
+        # code for random sampling
+        # indices = sorted(random.sample(range(len(days_info)), day_lim))
+
         days_info = [days_info[i] for i in indices]
         days = [days[i] for i in indices]
 
@@ -244,9 +263,9 @@ def process_data(time_gran=1440, pop_apps_only=True, weekdays_split=True, z_scor
 if __name__ == "__main__":
     # set up arguments, then call the function
     time_bins = 1440  # in minutes
-    pop_apps_only = True
+    pop_apps_only = False
     weekdays_split = False
     z_scores = True
-    day_lim = 6  # limit each person to only day_lim days of data
+    day_lim = 7  # limit each person to only day_lim days of data
 
     process_data(time_bins, pop_apps_only, weekdays_split, z_scores, day_lim)
