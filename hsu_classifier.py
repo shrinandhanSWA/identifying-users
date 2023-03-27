@@ -1,91 +1,100 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
-
-
-INPUT_WEEKDAY = 'csv_files/output_weekday.csv'
-INPUT_TEST = 'csv_files/TimeBehavProf46.csv'
-INPUT = 'csv_files/TimeBehavProf.csv'
+from sklearn.ensemble import RandomForestClassifier
+from scipy.stats import sem
+from statistics import mean
+import matplotlib.pyplot as plt
 
 
 # weekday classifier
-def weekday_classifier():
-    # load data from CSV
-    print('loading data...')
-    input_df = pd.read_csv(INPUT_TEST)
-
-    # split data into training and test set
-    # for now, test set will contain one entry for every person
-    print('splitting data...')
-    training_set = []
-    test_set = []
-    training_labels = []
-    test_labels = []
-
-    # to be used later
-    cols = input_df.columns
-
-    info = input_df.iloc[:, 2:]
-    idx = input_df.iloc[:, :2]
-
-    # iterate through the processed data
-    for id, inf in zip(idx.itertuples(), info.itertuples(index=False)):
-
-        # Day 1 --> testing, other days --> training
-        day = id.Day
-        if day == 'Day1':
-            test_labels.append(id.Person)
-            test_set.append(list(np.array(inf)))
-        else:
-            training_labels.append(id.Person)
-            training_set.append(list(np.array(inf)))
+def weekday_classifier(files_to_test):
 
 
-        # splitting data in the same way as the original analysis
-        # day = id.Day
-        # if day in ['Day1', 'Day2', 'Day3', 'Day4', 'Day5', 'Day6']:
-        #     training_labels.append(id.Person)
-        #     training_set.append(list(np.array(inf)))
-        # elif day == 'Day7':
-        #     test_labels.append(id.Person)
-        #     test_set.append(list(np.array(inf)))
+    # do analysis for each given file
+    for f_name, f_path in files_to_test.items():
+        # load data from CSV
+        print('loading data...')
+        input_df = pd.read_csv(f_path)
+
+        # Calculate number of users
+        users = list(set([row.Person for row in input_df.itertuples()]))
+
+        # for each user, generate a list (for their accuracies across each day in test_days)
+        users_data = {}
+        for user in users:
+            users_data[user] = []
+
+        # Calculate the days
+        test_days = sorted(list(set([row.Day for row in input_df.itertuples()])))
+
+        # Run analysis across each day in test_days
+        for test_day in test_days:
+
+            # split data into training and test set
+            training_set = []
+            test_set = []
+            training_labels = []
+            test_labels = []
+
+            # iterate through the processed data, to construct the sets
+            for row in input_df.itertuples():
+
+                row = list(row)
+
+                person = row[1]
+                day = row[2]
+                data = row[3:]
+
+                if day == test_day:
+                    test_labels.append(person)
+                    test_set.append(data)
+                else:
+                    training_labels.append(person)
+                    training_set.append(data)
 
 
-    # convert everything to numpy arrays
-    training_set = np.array(training_set)
-    training_labels = np.array(training_labels)
-    test_set = np.array(test_set)
-    test_labels = np.array(test_labels)
+            # convert everything to numpy arrays
+            training_set = np.array(training_set)
+            training_labels = np.array(training_labels)
+            test_set = np.array(test_set)
+            test_labels = np.array(test_labels)
 
-    # Shuffling training data
-    seed = np.random.randint(0, 10000)
-    np.random.seed(seed)
-    np.random.shuffle(training_set)
-    np.random.seed(seed)
-    np.random.shuffle(training_labels)
+            # Shuffling training data
+            seed = 1843  # np.random.randint(0, 10000)
+            np.random.seed(seed)
+            np.random.shuffle(training_set)
+            np.random.seed(seed)
+            np.random.shuffle(training_labels)
+
+            rf = RandomForestClassifier(n_estimators=100, random_state=46)
+
+            rf.fit(training_set, training_labels)
+
+            predictions = rf.predict(test_set)
+
+            for i, user in enumerate(test_labels):
+                users_data[user].append(1 if user == predictions[i] else 0)
+
+            N = test_labels.shape[0]
+            accuracy = (test_labels == predictions).sum() / N
+
+            print(f'accuracy when the test day is {test_day}: {accuracy * 100}%')
+
+        # try sigmoid/other activation functions for the thresholding
+
+        print(f'done analyzing {f_name}')
+        avg_acc = mean(mean(data) for _, data in users_data.items())
+        avg_sem = mean(sem(data) for _, data in users_data.items())
+
+        # plot accs and sem for this analysis
+        plt.errorbar(x=[f_name], y=[avg_acc], yerr=[avg_sem], ecolor='g')
 
 
-    print('training classifier...')
-    rf = RandomForestRegressor(n_estimators=3120)
-    # original analysis used 3120 trees (n_estimators)
-
-    rf.fit(training_set, training_labels)
-
-    print('testing classifier...')
-    predictions = rf.predict(test_set)
-
-    # round the predictions off
-    predictions = np.round(predictions)
-
-    N = test_labels.shape[0]
-    accuracy = (test_labels == predictions).sum() / N
-
-    print(f'accuracy is {accuracy*100}%')
-
-    print('done')
+    plt.show()
 
 
 if __name__ == '__main__':
 
-    weekday_classifier()
+    files_to_test = {'OFCOM': 'csv_files/AllDays.csv', 'OFCOM_WEEKDAY_ONLY': 'csv_files/Weekdays.csv'}
 
+    weekday_classifier(files_to_test)
