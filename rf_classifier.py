@@ -87,7 +87,7 @@ def weekday_classifier(files_to_test):
         avg_sem = mean(sem(data) for _, data in users_data.items())
 
         # plot accs and sem for this analysis
-        plt.errorbar(x=[f_name], y=[avg_acc], yerr=[avg_sem], ecolor='g')
+        plt.errorbar(x=[f_name], y=[avg_acc], yerr=[avg_sem], capsize=10, fmt='o')
 
 
     plt.show()
