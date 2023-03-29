@@ -6,7 +6,7 @@ if __name__ == "__main__":
     # set up arguments, then call the function
     input_file = 'csv_files/EveryonesAppData.csv'
 
-    output_file = 'csv_files/AllDays.csv'  # needs to be a tuple when weekdays_split is True
+    output_file = 'csv_files/TimeBehavProf46.csv'  # needs to be a tuple when weekdays_split is True
     # output_file = ('csv_files/Weekdays.csv', 'csv_files/Weekends.csv')
 
     time_bins = 1440  # in minutes
@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     weekdays_split = False
 
-    z_scores = True
+    z_scores = False
 
     day_lim = 7  # limit each person to only day_lim days of data
 
