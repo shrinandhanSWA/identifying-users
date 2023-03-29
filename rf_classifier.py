@@ -7,7 +7,11 @@ import matplotlib.pyplot as plt
 
 
 # weekday classifier
-def weekday_classifier(files_to_test):
+def classifier(files_to_test):
+
+    names = list(files_to_test.keys())
+    avg_accs = []
+    avg_sems = []
 
 
     # do analysis for each given file
@@ -80,21 +84,28 @@ def weekday_classifier(files_to_test):
 
             print(f'accuracy when the test day is {test_day}: {accuracy * 100}%')
 
-        # try sigmoid/other activation functions for the thresholding
+            # try sigmoid/other activation functions for the thresholding
 
-        print(f'done analyzing {f_name}')
         avg_acc = mean(mean(data) for _, data in users_data.items())
         avg_sem = mean(sem(data) for _, data in users_data.items())
 
-        # plot accs and sem for this analysis
-        plt.errorbar(x=[f_name], y=[avg_acc], yerr=[avg_sem], capsize=10, fmt='o')
+        avg_accs.append(avg_acc)
+        avg_sems.append(avg_sem)
+
+        print(f'done analyzing {f_name}')
+
+    # plot accs and sem for this analysis
+    plt.errorbar(x=names, y=avg_accs, yerr=avg_sems, capsize=10, fmt='o', label='default(mean)', c='g')
 
 
     plt.show()
+
+    # return some information if the caller wishes to use it
+    return names, avg_accs, avg_sems
 
 
 if __name__ == '__main__':
 
     files_to_test = {'OFCOM': 'csv_files/AllDays.csv', 'OFCOM_WEEKDAY_ONLY': 'csv_files/Weekdays.csv'}
 
-    weekday_classifier(files_to_test)
+    classifier(files_to_test)
