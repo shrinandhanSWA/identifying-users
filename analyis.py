@@ -138,7 +138,7 @@ def plot_results():
 if __name__ == "__main__":
     # ofcom_data_analysis()
     # hsu_app_analysis()
-    # time_gran_analysis('tanh')
-    plot_results()
+    time_gran_analysis('tanh-v2')
+    # plot_results()
 
     print()
