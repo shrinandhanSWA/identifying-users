@@ -6,8 +6,7 @@
 # 4. duration --> Duration of usage, in seconds
 # Note that in general, the data must be sorted on (participantnumber, timestamp) to work smoothly
 # Lastly, if this is run to merge multiple datasets, remember to turn z-scores off
-
-
+import math
 from functools import reduce
 import pandas as pd
 from datetime import datetime
@@ -47,7 +46,6 @@ def process_different_day_info(days):
     new_day_info = {}
 
     for day in days:
-
         # day is a dictionary
         for bin, duration in day.items():
             val = new_day_info.get(bin, [])
@@ -56,7 +54,18 @@ def process_different_day_info(days):
 
     # take average
     for bin, values in new_day_info.items():
-        new_day_info[bin] = mean(values)
+        # new_day_info[bin] = mean(values)
+        # new_day_info[bin] = int(values[0] > 0)
+        # new_day_info[bin] = int(mean([int(value > 0) for value in values]) > 0)
+        # new_day_info[bin] = values[0]
+
+        import numpy as np
+        # sig = lambda x: 1/(1 + np.exp(-x))
+        # new_day_info[bin] = sig(mean(values))  # sigmoid activation
+
+        tanh = lambda x: (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
+        new_day_info[bin] = tanh(mean(values)) if not math.isnan(tanh(mean(values))) else 0  # tanh activation
+
 
     return new_day_info
 
@@ -337,8 +346,6 @@ def process_data(input_file, output_file, time_gran=1440, pop_apps=(), weekdays_
     if z_score:
         users_weekday_df = calc_z_scores(users_weekday_df)
         users_weekend_df = calc_z_scores(users_weekend_df)
-
-    print('saving to CSV')
 
     # save both dataframes to separate CSVs
     if weekdays_split:
