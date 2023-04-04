@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 from process_data import process_data
 from rf_classifier import classifier
+from lr_classifier import classifier as lr_classifier
 
 
 # verifying that the ofcom dataset really has 5064 people + plotting how much info there is
@@ -115,7 +116,10 @@ def plot_results():
         lines = f.readlines()
 
         # to make the printing a bit clearer
-        targ_indices = [0, 1, 2]
+        # targ_indices = [0, 8, 9]  # sig and tanh v2
+        # targ_indices = [0, 3]  # mean v bin
+        # targ_indices = [0, 1, 2, 3]  # bin w/ different thresholds
+        targ_indices = [6, 13]  # one data point
         lines = [lines[i] for i in targ_indices]
 
         for line in lines:
@@ -138,7 +142,7 @@ def plot_results():
 if __name__ == "__main__":
     # ofcom_data_analysis()
     # hsu_app_analysis()
-    time_gran_analysis('tanh-v2')
+    time_gran_analysis('log-reg')
     # plot_results()
 
     print()

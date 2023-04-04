@@ -12,6 +12,7 @@ import pandas as pd
 from datetime import datetime
 from statistics import mean
 from tqdm import tqdm
+import numpy as np
 
 MINS_IN_DAY = 1440
 DAYS_OF_WEEK = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5, 'Sunday': 6}
@@ -28,11 +29,19 @@ def calc_z_scores(df):
         avg = col.mean()
         std = col.std()
 
+        max = col.max()
+        min = col.min()
+
         # remove column if the column is entirely 0
         if avg == 0:
             to_be_removed.append(col_name)
         else:
             col = col.apply(lambda x: (x - avg) / std if std != 0 else 0)
+            # sig = lambda x: 1/(1 + np.exp(-x))
+            tanh = lambda x: (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
+            col = col.apply(tanh)
+            # col = col.apply(lambda x: (x - min) / (max - min) if std != 0 else 0)
+
             df[col_name] = col
 
     df = df.drop(columns=to_be_removed)
@@ -57,16 +66,16 @@ def process_different_day_info(days):
         # new_day_info[bin] = mean(values)
         # new_day_info[bin] = int(values[0] > 0)
         # new_day_info[bin] = int(mean([int(value > 0) for value in values]) > 0)
-        # new_day_info[bin] = values[0]
+        new_day_info[bin] = values[0]
 
         import numpy as np
-        sig = lambda x: 1/(1 + np.exp(-x))
+        # sig = lambda x: 1/(1 + np.exp(-x))
         # new_day_info[bin] = sig(mean(values))
-        # new_day_info[bin] = sig(mean([int(value > 0) for value in values]))  # sigmoid activation
+        # new_day_info[bin] = sig(mean([int(value > 0) for value in values]))  # sigmoid activation (v2)
 
-        tanh = lambda x: (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
+        # tanh = lambda x: (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
         # new_day_info[bin] = tanh(mean(values)) if not math.isnan(tanh(mean(values))) else 0
-        new_day_info[bin] = tanh(mean([int(value > 0) for value in values]))  # tanh activation
+        # new_day_info[bin] = tanh(mean([int(value > 0) for value in values]))  # tanh activation (v2)
 
 
     return new_day_info
