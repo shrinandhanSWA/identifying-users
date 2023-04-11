@@ -18,6 +18,9 @@ MINS_IN_DAY = 1440
 DAYS_OF_WEEK = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5, 'Sunday': 6}
 WEEKDAYS = ('Day1', 'Day2', 'Day3', 'Day4', 'Day5')
 WEEKENDS = ('Day6', 'Day7')
+sig = lambda x: 1 / (1 + np.exp(-x))
+tanh = lambda x: (np.exp(x) - np.exp(-x)) / (np.exp(x) + np.exp(-x))
+relu = lambda x: max(0, x)
 
 
 # function that calculates z scores for each column of the given dataframe
@@ -37,9 +40,8 @@ def calc_z_scores(df):
             to_be_removed.append(col_name)
         else:
             col = col.apply(lambda x: (x - avg) / std if std != 0 else 0)
-            # sig = lambda x: 1/(1 + np.exp(-x))
-            tanh = lambda x: (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
-            col = col.apply(tanh)
+            # col = col.apply(sig)
+            # col = col.apply(tanh)
             # col = col.apply(lambda x: (x - min) / (max - min) if std != 0 else 0)
 
             df[col_name] = col
@@ -68,42 +70,17 @@ def process_different_day_info(days):
         # new_day_info[bin] = int(mean([int(value > 0) for value in values]) > 0)
         new_day_info[bin] = values[0]
 
-        import numpy as np
-        # sig = lambda x: 1/(1 + np.exp(-x))
         # new_day_info[bin] = sig(mean(values))
         # new_day_info[bin] = sig(mean([int(value > 0) for value in values]))  # sigmoid activation (v2)
 
-        # tanh = lambda x: (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
         # new_day_info[bin] = tanh(mean(values)) if not math.isnan(tanh(mean(values))) else 0
         # new_day_info[bin] = tanh(mean([int(value > 0) for value in values]))  # tanh activation (v2)
-
 
     return new_day_info
 
 
-# Helper to process user data TODO: compress user daily data
-# pca = PCA(n_components=46)  # PCA sample code
-# pca.fit(data)
-# new_data = pca.singular_values_
-def process_user_info(data, day_lim, expected_days):
-    # data: {day_of_week --> [day_info_dicts]}
-
-    days = []
-    days_info = []
-
-    for day in range(7):
-
-        day_info = data[day]  # list
-
-        if not day_info:
-            continue
-
-        final_day_info = process_different_day_info(day_info)  # one dictionary
-
-        days_info.append(final_day_info)
-        days.append(f'Day{day + 1}')
-
-    # enforce day_lim + determine if the data is complete
+# Helper to enforce day_lim + determine if the data is complete
+def check_lim(days, day_lim, expected_days):
     # current idea: hard coded days to be selected (for day limit checking)
     if len(days) == 7:
         # in this case, the raw data is a combination of weekdays and weekends
@@ -170,6 +147,73 @@ def process_user_info(data, day_lim, expected_days):
         indices = []
         all_data = False
 
+    return indices, all_data
+
+
+# Helper to aggregate user data (when the AGG flag is False)
+def aggregate_user_info(data, day_lim, expected_days):
+    # data: {day_of_week --> [day_info_dicts]}
+    days = []
+    days_info = []
+    unique_days = []
+
+    for day in range(7):
+        day_info = data[day]  # list
+
+        if not day_info:
+            continue
+
+        # limit check requires the number of unique days
+        unique_days.append(day)
+
+        for i, info in enumerate(day_info):
+            # optionally, pre-process each day of information (as above)
+            # for bin, value in info.items():
+            #     info[bin] = int(value > 0)
+
+            days_info.append(info)
+            days.append(f'Day{day + 1}-{i + 1}')
+
+    indices, all_data = check_lim(unique_days, day_lim, expected_days)
+
+    acc_indices = []
+
+    for i, day_info in enumerate(days_info):
+        acc_day = int(days[i].split('-')[-1]) - 1
+        if acc_day in indices:
+            acc_indices.append(i)
+
+    days_info = [days_info[i] for i in acc_indices]
+    days = [days[i] for i in acc_indices]
+
+    return days_info, days, all_data
+
+
+# Helper to process user data (when the AGG flag is True)
+# TODO: compress user daily data
+# pca = PCA(n_components=46)  # PCA sample code
+# pca.fit(data)
+# new_data = pca.singular_values_
+def process_user_info(data, day_lim, expected_days):
+    # data: {day_of_week --> [day_info_dicts]}
+
+    days = []
+    days_info = []
+
+    for day in range(7):
+
+        day_info = data[day]  # list
+
+        if not day_info:
+            continue
+
+        final_day_info = process_different_day_info(day_info)  # one dictionary
+
+        days_info.append(final_day_info)
+        days.append(f'Day{day + 1}')
+
+    indices, all_data = check_lim(days, day_lim, expected_days)
+
     days_info = [days_info[i] for i in indices]
     days = [days[i] for i in indices]
 
@@ -195,7 +239,7 @@ def create_bins(ori_dict, apps, bins, day_of_week):
 
 # small helper func to add on new_data to input_df (does weekends and weekdays at the same time)
 # input_dfs, new_data, and expected_days are tuples (weekday, weekend)
-def update_df(input_dfs, new_data, user_number, day_lim, expected_days):
+def update_df(input_dfs, new_data, user_number, day_lim, expected_days, agg):
     input_df_weekday = input_dfs[0]
     input_df_weekend = input_dfs[1]
 
@@ -206,7 +250,10 @@ def update_df(input_dfs, new_data, user_number, day_lim, expected_days):
     expected_days_weekend = expected_days[1]
 
     # process weekdays new_data (this is the user's data for weekdays)
-    new_data_weekday, days, complete = process_user_info(new_data_weekday, day_lim, expected_days_weekday)
+    if agg:
+        new_data_weekday, days, complete = process_user_info(new_data_weekday, day_lim, expected_days_weekday)
+    else:
+        new_data_weekday, days, complete = aggregate_user_info(new_data_weekday, day_lim, expected_days_weekday)
 
     # If a user does not have the required amount of weekday data, ignore them
     # also decrement the count of users (since this one doesn't count now)
@@ -220,7 +267,11 @@ def update_df(input_dfs, new_data, user_number, day_lim, expected_days):
     new_weekdays_df = pd.concat([input_df_weekday, new_df], ignore_index=False)
 
     # repeat the process for weekends new_data
-    new_data_weekend, days, complete = process_user_info(new_data_weekend, day_lim, expected_days_weekend)
+    if agg:
+        new_data_weekend, days, complete = process_user_info(new_data_weekend, day_lim, expected_days_weekend)
+    else:
+        new_data_weekend, days, complete = aggregate_user_info(new_data_weekend, day_lim, expected_days_weekend)
+
     if not complete:
         return input_dfs, user_number - 1
 
@@ -235,7 +286,7 @@ def update_df(input_dfs, new_data, user_number, day_lim, expected_days):
 
 
 def process_data(input_file, output_file, time_gran=1440, pop_apps=(), weekdays_split=True, z_score=True, day_lim=7,
-                 selected_days=WEEKDAYS + WEEKENDS, user_lim=10000):
+                 selected_days=WEEKDAYS + WEEKENDS, user_lim=10000, agg=False):
     # Read in the days to be selected - these are global variables since the need to be accessed elsewhere
     # Also verify that this is the same as the day_limit
     assert len(selected_days) == day_lim, "the number of selected_days must match day_lim!"
@@ -296,7 +347,7 @@ def process_data(input_file, output_file, time_gran=1440, pop_apps=(), weekdays_
                 expected_days = (expected_days_weekday, expected_days_weekend)
                 user_dicts = (curr_user_weekday_dict, curr_user_weekend_dict)
                 (users_weekday_df, users_weekend_df), user_count = update_df(dfs, user_dicts, user_count, day_lim,
-                                                                             expected_days)
+                                                                             expected_days, agg)
                 user_count += 1
                 if user_count > user_lim:
                     user_limit_hit = True
@@ -352,7 +403,7 @@ def process_data(input_file, output_file, time_gran=1440, pop_apps=(), weekdays_
         expected_days = (expected_days_weekday, expected_days_weekend)
         user_dicts = (curr_user_weekday_dict, curr_user_weekend_dict)
         (users_weekday_df, users_weekend_df), user_count = update_df(dfs, user_dicts, user_count, day_lim,
-                                                                     expected_days)
+                                                                     expected_days, agg)
     # OPTIONAL: calculate z-scores for each column
     if z_score:
         users_weekday_df = calc_z_scores(users_weekday_df)
@@ -366,6 +417,154 @@ def process_data(input_file, output_file, time_gran=1440, pop_apps=(), weekdays_
     else:
         # if no weekday-weekend split, store output in one CSV file
         users_weekday_df.to_csv(output_file)
+
+
+# Add extra data to the data already in output_file, run after process_data
+# There are a few diferences with the previous function:
+# 1) output_file is read and do a concat with whatever has been processed
+# 2) no apps, since this analysis only considers overall usage per time bin
+# 3) Stuff like time_gran, weekdays, z_scores, limits, etc. are still in place
+# 4) the way of creating bins is different now, and so is the variable bin_name
+# Future TODO: extract this out into a function to make it easier to add more stuff (if it helps)
+def extra_data(input_file, output_file, time_gran=1440, weekdays_split=True, z_score=True, day_lim=7,
+               selected_days=WEEKDAYS + WEEKENDS, user_lim=10000, agg=False):
+    # Read the input file, but now add different information to output_file, and save to output_file
+
+    input = pd.read_csv(input_file)
+
+    # all time bins - split into weekdays and weekends if required
+    # granularity of time bins is determined by the time_gran variable (in min)
+    no_bins = MINS_IN_DAY // time_gran
+
+    # helper variables
+    curr_user = None
+    curr_user_weekday_dict = {i: [] for i in range(7)}  # {day_of_week --> {day-month: per_day_info_dicts}}
+    curr_user_weekend_dict = {i: [] for i in range(7)}
+    curr_user_curr_day = 0
+    user_count = 1
+    user_limit_hit = False
+
+    expected_days_weekday = 7 if not weekdays_split else 5
+    expected_days_weekend = 0 if not weekdays_split else 2
+
+    # overall dataframe for all users (will be built up) - weekday and weekend info separated
+    # then concat with curr_output
+    users_weekday_df = pd.DataFrame({})
+    users_weekend_df = pd.DataFrame({})
+
+    # this variable determines which days are weekends
+    # if weekdays_split is true, this results in 2 CSVs (weekday and weekend)
+    # otherwise, one combined CSV is produced (with all days)
+    weekend_days = [5, 6] if weekdays_split else []
+
+    # iterate through all the inputs
+    for row in tqdm(input.itertuples(), total=len(input.index)):
+        user = row.participantnumber
+        timestamp = row.timestamp
+        app = row.event.strip()
+        duration = row.duration
+
+        if user != curr_user:
+            # moved on to next user, so save previous user's information
+            if curr_user is not None:
+                dfs = (users_weekday_df, users_weekend_df)
+                expected_days = (expected_days_weekday, expected_days_weekend)
+                user_dicts = (curr_user_weekday_dict, curr_user_weekend_dict)
+                (users_weekday_df, users_weekend_df), user_count = update_df(dfs, user_dicts, user_count, day_lim,
+                                                                             expected_days, agg)
+                user_count += 1
+                if user_count > user_lim:
+                    user_limit_hit = True
+                    break
+
+            # set the rolling parameters for the new user
+            curr_user = user
+            curr_user_weekday_dict = {i: [] for i in range(7)}
+            curr_user_weekend_dict = {i: [] for i in range(7)}
+            curr_user_curr_time = datetime.fromtimestamp(int(timestamp))
+            curr_user_curr_day = curr_user_curr_time.day
+            day_of_week = datetime.weekday(curr_user_curr_time)
+
+            # creating new bins, as many as required (no_bins, calculated above)
+            new_dict = {}
+            for time in range(no_bins):
+                bin_name = 'Usage-Bin' + str(time + 1)
+                new_dict[bin_name] = 0
+
+            if day_of_week in weekend_days:
+                curr_user_weekend_dict[day_of_week].append(new_dict)
+            else:
+                curr_user_weekday_dict[day_of_week].append(new_dict)
+
+        # calculate day and hour of this event
+        curr_event_time = datetime.fromtimestamp(int(timestamp))
+
+        # check if a new day has been reached
+
+        if curr_event_time.day != curr_user_curr_day:
+            curr_user_curr_day = curr_event_time.day
+            day_of_week = datetime.weekday(curr_event_time)
+
+            new_dict = {}
+            for time in range(no_bins):
+                bin_name = 'Usage-Bin' + str(time + 1)
+                new_dict[bin_name] = 0
+
+            if day_of_week in weekend_days:
+                curr_user_weekend_dict[day_of_week].append(new_dict)
+            else:
+                curr_user_weekday_dict[day_of_week].append(new_dict)
+
+        curr_event_day = datetime.weekday(curr_event_time)
+
+        # determine which time bin the current time is in
+        curr_event_min = curr_event_time.hour * 60 + curr_event_time.minute
+        curr_event_bin = curr_event_min // time_gran
+
+        # create bin name - without app name now
+        bin_name = 'Usage-Bin' + str(curr_event_bin + 1)
+
+        if curr_event_day in weekend_days:  # weekend
+            curr_day_info = curr_user_weekend_dict.get(curr_event_day)[-1]
+            new_duration = curr_day_info.get(bin_name, 0) + duration
+            curr_user_weekend_dict[curr_event_day][-1][bin_name] = new_duration
+        else:  # weekday
+            curr_day_info = curr_user_weekday_dict.get(curr_event_day)[-1]
+            new_duration = curr_day_info.get(bin_name, 0) + duration
+            curr_user_weekday_dict[curr_event_day][-1][bin_name] = new_duration
+
+    # updating info of the last user, if the user limit has not been hit
+    if not user_limit_hit:
+        dfs = (users_weekday_df, users_weekend_df)
+        expected_days = (expected_days_weekday, expected_days_weekend)
+        user_dicts = (curr_user_weekday_dict, curr_user_weekend_dict)
+        (users_weekday_df, users_weekend_df), user_count = update_df(dfs, user_dicts, user_count, day_lim,
+                                                                     expected_days, agg)
+    # OPTIONAL: calculate z-scores for each column
+    if z_score:
+        users_weekday_df = calc_z_scores(users_weekday_df)
+        users_weekend_df = calc_z_scores(users_weekend_df)
+
+    # save both dataframes to separate CSVs
+    if weekdays_split:
+        # assumes output_file has 2 things - one for weekdays, and the other for weekends, in that order!
+        curr_output_weekday = pd.read_csv(output_file[0])
+        curr_output_weekend = pd.read_csv(output_file[1])
+
+        new_output_weekday = pd.concat(
+            [curr_output_weekday.reset_index(drop=True), users_weekday_df.reset_index(drop=True)], axis=1)
+        new_output_weekend = pd.concat(
+            [curr_output_weekend.reset_index(drop=True), users_weekend_df.reset_index(drop=True)], axis=1)
+
+        new_output_weekday.to_csv(output_file[0], index=False)
+        new_output_weekend.to_csv(output_file[1], index=False)
+    else:
+        # if no weekday-weekend split, store output in one CSV file
+        curr_output = pd.read_csv(output_file)
+        new_output = pd.concat(
+            [curr_output.reset_index(drop=True), users_weekday_df.reset_index(drop=True)], axis=1)
+        new_output.to_csv(output_file, index=False)
+
 
 # Other possible improvements
 # 1. Have a limit on the number of days that are processed --> easy to do
