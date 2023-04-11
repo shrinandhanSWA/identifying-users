@@ -5,7 +5,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 from process_data import process_data
-from rf_classifier import classifier
+from rf_classifier import all_data_classifier, agg_classifier
 from lr_classifier import classifier as lr_classifier
 
 
@@ -83,13 +83,14 @@ def time_gran_analysis(name):
         pop_apps = []
         weekdays_split = False
         z_scores = False
+        agg = True
         day_lim = 7  # limit each person to only day_lim days of data
         user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
-        process_data(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim)
+        process_data(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim, agg=agg)
         files_to_test[f'{time_bins // 60}h'] = output_file
 
     # once all the data has been generated, call the classifier with these files
-    names, accs, sems = classifier(files_to_test)
+    names, accs, sems = lr_classifier(files_to_test)
 
     # write to results.txt - to be loaded up later
     with open('results.txt', 'a') as f:
@@ -119,7 +120,15 @@ def plot_results():
         # targ_indices = [0, 8, 9]  # sig and tanh v2
         # targ_indices = [0, 3]  # mean v bin
         # targ_indices = [0, 1, 2, 3]  # bin w/ different thresholds
-        targ_indices = [6, 13]  # one data point
+
+        # targ_indices = [19, 21]  # one data point vs z-score
+        # targ_indices = [19, 22]  # one data point vs norm
+        # targ_indices = [19, 23]  # one data point vs sig
+        # targ_indices = [19, 24]  # one data point vs tanh
+        # targ_indices = [19, 18]  # one data point vs relu
+        targ_indices = [19, 17]  # one data point vs logistic (not quite working)
+
+
         lines = [lines[i] for i in targ_indices]
 
         for line in lines:
@@ -142,7 +151,6 @@ def plot_results():
 if __name__ == "__main__":
     # ofcom_data_analysis()
     # hsu_app_analysis()
-    time_gran_analysis('log-reg')
+    time_gran_analysis('log-reg-unnorm')
     # plot_results()
-
     print()
