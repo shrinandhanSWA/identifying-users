@@ -89,4 +89,4 @@ if __name__ == '__main__':
     process_data(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
                  agg=agg)
 
-    extra_data(input_file, output_file, 360, weekdays_split, z_scores, day_lim, user_lim=user_lim, agg=agg)
+    extra_data(input_file, output_file, 180, weekdays_split, z_scores, day_lim, user_lim=user_lim, agg=agg)
