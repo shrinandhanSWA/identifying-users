@@ -190,12 +190,13 @@ class ProcessData(ABC):
         # data: {day_of_week --> [day_info_dicts]}
         days = []
         days_info = []
-        unique_days = []
 
         days_done = 0  # needs to be <= day_lim
         day = 0
         progress = False
         day_counters = {i: 1 for i in range(7)}
+
+        acc_lim = expected_days * 5  # 10 for weekends, 25 for weekdays
 
         while days_done < day_lim:
 
@@ -219,7 +220,42 @@ class ProcessData(ABC):
                 else:
                     break
 
-        all_data = days_done == day_lim or (expected_days == 0)
+
+        # if expected days is 2, then we will already have the required number of days
+        if expected_days == 7:  # this is all_days, need 3 random weekends and 7 random weekdays (over time)
+            # TODO
+            pass
+        # if expected_days == 5:  # pick 2 random weekdays per week
+        #     new_days = []
+        #     new_info = []
+        #
+        #     # step 1: split days into weeks
+        #     weeks = [[] for _ in range(5)]
+        #     weeks_days = [[] for _ in range(5)]
+        #     for day, info in zip(days, days_info):
+        #         curr_week = int(day.split('-')[-1]) - 1
+        #         if curr_week >= 5:
+        #             break
+        #         weeks[curr_week].append(info)
+        #         weeks_days[curr_week].append(day)
+        #
+        #     # step 2: for each week, pick 2 random days
+        #     for i, week in enumerate(weeks):
+        #         # pick 2 days
+        #         if len(week) < 2:
+        #             break
+        #
+        #         import random
+        #         indices = random.sample(range(len(week)), 2)
+        #         for index in indices:
+        #             new_days.append(weeks_days[i][index])
+        #             new_info.append(week[index])
+        #
+        #     # put it all back
+        #     days = new_days
+        #     days_info = new_info
+
+        all_data = (days_done >= day_lim and len(days) == 10) or (expected_days == 0)
 
         return days_info, days, all_data
 
