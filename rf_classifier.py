@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 
 # weekday classifier - for csv files with non-aggregated days
+# in other words, those generated from process_data with AGG as FALSE
 def all_data_classifier(files_to_test):
     names = list(files_to_test.keys())
     avg_accs = []
@@ -38,6 +39,9 @@ def all_data_classifier(files_to_test):
             training_labels = []
             test_labels = []
 
+            # this is to make sure there is only 1 test day always
+            person_to_test = {i: False for i in range(1, len(users) + 1)}
+
             # iterate through the processed data, to construct the sets
             for row in input_df.itertuples():
 
@@ -47,9 +51,10 @@ def all_data_classifier(files_to_test):
                 day = row[2].split('-')[0]
                 data = row[3:]
 
-                if day == test_day:
+                if day == test_day and not person_to_test[person]:
                     test_labels.append(person)
                     test_set.append(data)
+                    person_to_test[person] = True
                 else:
                     training_labels.append(person)
                     training_set.append(data)
@@ -89,7 +94,7 @@ def all_data_classifier(files_to_test):
         avg_accs.append(avg_acc)
         avg_sems.append(avg_sem)
 
-        print(f'done analyzing {f_name}')
+        print(f'done analyzing {f_name} - avg accuracy was {avg_acc*100}% with sem of {avg_sem*100}%')
 
     # plot accs and sem for this analysis
     plt.errorbar(x=names, y=avg_accs, yerr=avg_sems, capsize=10, fmt='o', label='default(mean)', c='g')
@@ -101,7 +106,7 @@ def all_data_classifier(files_to_test):
 
 
 # weekday classifier - for csv files with aggregated days
-def agg_classifier(files_to_test):
+def agg_classifier(files_to_test, n_trees=100):
     names = list(files_to_test.keys())
     avg_accs = []
     avg_sems = []
@@ -161,7 +166,7 @@ def agg_classifier(files_to_test):
             np.random.seed(seed)
             np.random.shuffle(training_labels)
 
-            rf = RandomForestClassifier(n_estimators=100, random_state=46)
+            rf = RandomForestClassifier(n_estimators=n_trees, random_state=46)
 
             rf.fit(training_set, training_labels)
 
@@ -183,7 +188,7 @@ def agg_classifier(files_to_test):
         avg_accs.append(avg_acc)
         avg_sems.append(avg_sem)
 
-        print(f'done analyzing {f_name}')
+        print(f'done analyzing {f_name} - avg accuracy was {avg_acc}% with sem of {avg_sem}%')
 
     # plot accs and sem for this analysis
     plt.errorbar(x=names, y=avg_accs, yerr=avg_sems, capsize=10, fmt='o', label='default(mean)', c='g')
@@ -195,7 +200,8 @@ def agg_classifier(files_to_test):
 
 
 if __name__ == '__main__':
-    files_to_test = {'OFCOM_APP_OVERALL_USAGE': 'csv_files/AllDaysExtra.csv',
-                     'OFCOM_APP_USAGE': 'csv_files/AllDaysOriginal.csv'}
+    files_to_test = {'all_days': 'csv_files/ofcom_10_days.csv',
+                     'weekdays': 'csv_files/ofcom_10_weekdays.csv',
+                     'weekends': 'csv_files/ofcom_10_weekends.csv'}
 
     all_data_classifier(files_to_test)
