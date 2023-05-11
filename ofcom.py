@@ -4,7 +4,7 @@
 import pandas as pd
 from dateutil.parser import parse
 from tqdm import tqdm
-from process_data import process_data, extra_data
+from process_data import DurationsPerApp, DurationsOverall, PickupsPerApp, PickupsOverall, FirstUseTime, AverageDurationPerApp
 
 
 # Simple csv crop function
@@ -67,8 +67,8 @@ if __name__ == '__main__':
     # set up arguments, then call the function
     input_file = 'csv_files/ofcom_processed.csv'
 
-    output_file = 'csv_files/AllDaysExtra.csv'  # needs to be a tuple when weekdays_split is True
-    # output_file = ('csv_files/Weekdays.csv', 'csv_files/Weekends.csv')
+    output_file = 'csv_files/ofcom_10_days.csv'  # needs to be a tuple when weekdays_split is True
+    # output_file = ('csv_files/ofcom_10_weekdays.csv', 'csv_files/ofcom_10_weekends.csv')
 
     time_bins = 1440  # in minutes
 
@@ -78,15 +78,33 @@ if __name__ == '__main__':
 
     z_scores = False
 
-    day_lim = 7  # limit each person to only day_lim days of data
+    day_lim = 10  # limit each person to only day_lim days of data
 
     user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
 
     selected_days = ['Day1', 'Day2', 'Day3', 'Day4', 'Day5', 'Day6', 'Day7']
 
-    agg = True
+    agg = False
 
-    process_data(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                 agg=agg)
+    # remember, caller has to clear output_file
+    f = open(output_file, "w+")
+    f.close()
 
-    extra_data(input_file, output_file, 180, weekdays_split, z_scores, day_lim, user_lim=user_lim, agg=agg)
+    # f = open(output_file[0], "w+")
+    # f.close()
+    # f = open(output_file[1], "w+")
+    # f.close()
+
+    # Do the analysis
+    DurationsPerApp(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                  agg=agg).process_data()
+    DurationsOverall(input_file, output_file, 180, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                  agg=agg).process_data()
+    PickupsPerApp(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                  agg=agg).process_data()
+    PickupsOverall(input_file, output_file, 180, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                  agg=agg).process_data()
+    FirstUseTime(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                  agg=agg).process_data()
+    AverageDurationPerApp(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                  agg=agg).process_data()
