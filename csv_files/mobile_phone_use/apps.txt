@@ -1,0 +1,169 @@
+com.whatsapp:WhatsApp
+com.king.farmheroessaga:Farm Heroes Saga
+com.facebook.katana:Facebook
+com.android.email:Inbox
+com.android.contacts:Contacts
+com.sonyericsson.android.socialphonebook:Contacts
+com.android.calendar:Calendar
+com.king.farmheroessupersaga:Farm Heroes Super Saga
+com.android.phone:Phone
+com.king.pyramidsolitairesaga:Pyramid Solitaire Saga
+com.android.mms:Messenger
+com.android.browser:Internet
+com.purplekiwii.mb:Monster Busters
+cat.bcn.areadum:AreaDUM
+com.instagram.android:Instagram
+com.android.dialer:Dialer
+com.google.android.apps.maps:Maps
+net.inverline.bancosabadell.officelocator.android:Banco Sabadell
+es.lacaixa.mobile.android.newwapicon:Caixa Bank
+com.wallapop:Wallapop
+com.facebook.orca:Facebook Messenger
+com.android.chrome:Internet
+com.google.android.calendar:Calendar
+game.spa.dev:GAME
+com.google.android.googlequicksearchbox:Google Search
++com.google.android.googlequicksearchbox:Google Search
+com.android.calculator2:Calculator
+com.jrtstudio.music:JRT Studio
+com.android.deskclock:Clock
+com.sec.android.app.clockpackage:Clock
+com.twitter.android:Twitter
+es.awg.movilidadEOL:MovilData
+com.google.android.youtube:YouTube
+com.ebay.mobile:eBay
+com.yahoo.mobile.client.android.mail:Yahoo Mail
+com.spotify.music:Spotify
+com.snapchat.android:Snapchat
+com.google.android.apps.photos:Gallery
+com.android.gallery3d:Gallery
+com.sec.android.gallery3d:Gallery
+com.motorola.MotGallery2:Gallery
+com.bq.gallerybq:Gallery
+com.cyngn.gallerynext:Gallery
+com.google.android.gallery3d:Gallery
+com.meizu.media.gallery:Gallery
+com.miui.gallery:Gallery
+com.asus.gallery:Gallery
+com.motorola.motgallery:Gallery
+com.moblynx.galleryics:Gallery
+com.jrdcom.android.gallery3d:Gallery
+com.fstop.photo:Gallery
+com.melero.photos:Gallery
+com.microsoft.office.outlook:Outlook
+org.telegram.messenger:Telegram
+com.linkedin.android:LinkedIn
+com.google.android.apps.messaging:Messenger
+com.tuenti.messenger:Tuenti
+com.android.messaging:Messenger
+com.vodafone.messaging:Messenger
+com.asus.message:Messenger
+com.motorola.messaging:Messenger
+com.here.app.maps:Maps
+com.ulmon.android.citymaps2go:Maps
+com.orux.oruxmaps:Maps
+com.google.android.maps.mytracks:My Track
+org.mozilla.firefox:Internet
+com.google.android.apps.inbox:Gmail
+com.samsung.android.email.provider:Inbox
+de.gmx.mobile.android.mail:GMX Mail
+hotmail.sign.in.hot.mail.app:Hotmail
+com.boxer.email:Boxer
+com.android.suppermail:SuperMailer
+com.maildroid:MailDroid
+com.htc.android.mail:Inbox
+com.samsung.android.email.ui:Inbox
+com.lge.email:Inbox
+com.my.mail:MyMail
+com.motorola.motoemail:Inbox
+ru.mail.mailapp:Mail.ru
+com.google.android.play.games:Google Play Store
+com.htc.contacts:Contacts
+com.google.android.contacts:Contacts
+com.callapp.contacts:Contacts
+com.asus.contacts:Contacts
+com.needom.simcontacts:Contacts
+com.lge.clock:Clock
+com.google.android.deskclock:Clock
+com.cyanogenmod.lockclock:Clock
+com.jmt.clockwidget:Clock
+com.vp.alarmClockPlusDock:Clock
+com.htc.android.worldclock:Clock
+com.splunchy.android.alarmclock:Clock
+com.sonyericsson.digitalclockwidget2:Clock
+com.alarmclock.xtreme.free:Clock
+com.android.alarmclock:Clock
+com.asus.deskclock:Clock
+com.caynax.alarmclock:Clock
+com.andronicus.ledclock:Clock
+com.projectrockofficial.rockclock:Clock
+com.apalon.myclock:Clock
+com.angrydoughnuts.android.alarmclock:Clock
+com.lge.camera:Camera
+com.sec.android.app.camera:Camera
+com.android.camera2:Camera
+com.motorola.camera:Camera
+com.cyworld.camera:Camera
+com.sonyericsson.android.camera:Camera
+com.huawei.camera:Camera
+com.oneplus.camera:Camera
+com.android.camerabq:Camera
+com.htc.camera:Camera
+com.cyngn.cameranext:Camera
+com.google.android.GoogleCamera:Camera
+com.jessdev.hdcameras:Camera
+ar.com.moula.zoomcamera:Camera
+com.android.hwcamera:Camera
+com.meizu.media.camera:Camera
+com.selfishop.camera:Camera
+com.acer.camera:Camera
+com.android.camera:Camera
+com.magix.camera_mx:Camera
+com.asus.camera:Camera
+com.pip.camera.frames:Camera
+com.motorola.Camera:Camera
+com.myos.camera:Camera
+jp.naver.linecamera.android:Camera
+vStudio.Android.Camera360:Camera
+com.zte.camera:Camera
+camera.time.frame.lapse:Camera
+com.sec.android.app.camera.plb:Camera
+com.sonyericsson.android.addoncamera.artfilter:Camera
+com.rcplatform.selfiecamera:Camera
+com.sonymobile.android.addoncamera.soundphoto:Camera
+com.digibites.calendar:Calendar
+com.anod.calendar:Calendar
+com.htc.calendar:Calendar
+org.withouthat.acalendar:Calendar
+com.boxer.calendar:Calendar
+com.asus.calendar:Calendar
+com.digitalchemy.calculator.decimal:Calculator
+com.google.android.calculator:Calculator
+mobi.appplus.calculator.plus:Calculator
+com.htc.calculator:Calculator
+com.asus.calculator:Calculator
+arity.calculator:Calculator
+it.onecalculator:Calculator
+com.meizu.flyme.calculator:Calculator
+com.lrhsoft.shiftercalendar:Work Shift Calculator
+com.underwood.calendar_beta:Calculator
+com.amazon.clouddrive.photos:Gallery
+com.synology.dsphoto:Gallery
+linkto.mailemail.fastaccess:Access Email
+com.syntomo.email:Syntomo Email
+com.samsung.android.email.composer:Inbox
+com.ghostpattern.gwmail:GW Mail
+com.messenger.forwhatsapp:WhatsApp
+com.lge.settings.easy:Settings
+com.android.settingsaccessibility:Settings
+com.samsung.android.app.shareaccessibilitysettings:Settings
+com.cyanogenmod.settings.device:Settings
+com.sec.android.easysettings:Settings
+com.motorola.multisimsettings:Settings
+com.lge.wifisettings:Settings
+com.sonyericsson.settings:Settings
+com.sonyericsson.settings.wifi:Settings
+com.android.multisimsettings:Settings
+com.lge.lockscreensettings:Settings
+com.lge.networksettings:Settings
+com.motorola.coresettingsext:Settings
