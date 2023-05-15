@@ -30,7 +30,7 @@ def process_user(file_path):
                 if curr_app is not None:
                     duration = curr_time - curr_app_start
                     user_output = user_output.append({'participantnumber': row.uuid,
-                                                      'timestamp': row.ts_raw,
+                                                      'timestamp': curr_app_start,
                                                       'event': curr_app,
                                                       'duration': duration}, ignore_index=True)
                 curr_app = None
@@ -44,7 +44,7 @@ def process_user(file_path):
                 # save entry
                 duration = curr_time - curr_app_start
                 user_output = user_output.append({'participantnumber': row.uuid,
-                                                  'timestamp': row.ts_raw,
+                                                  'timestamp': curr_app_start,
                                                   'event': curr_app,
                                                   'duration': duration}, ignore_index=True)
 
@@ -55,11 +55,11 @@ def process_user(file_path):
 
 
 # function to rename raw app names to processed names
-def rename_apps(input_df):
+def rename_apps(input_path):
     apps_dict = {}
     new_df = pd.DataFrame({})
-    apps_missing = set()
     ignored = []
+    input_df = pd.read_csv(input_path)
 
     # read in apps.txt --> app name dict
     with open('csv_files/mobile_phone_use/apps.txt', 'r') as file:
@@ -76,22 +76,18 @@ def rename_apps(input_df):
 
     for i, row in input_df.iterrows():
         old_app_name = row.event
+        new_app_name = old_app_name
 
         if old_app_name in ignored:
             continue  # ignore it as it's a system app
 
-        if old_app_name not in apps_dict:
-            apps_missing.add(old_app_name)
-        else:
+        if old_app_name in apps_dict:
             new_app_name = apps_dict[old_app_name]
 
-            new_df = new_df.append({'participantnumber': row.participantnumber,
-                           'timestamp': row.timestamp,
-                           'event': new_app_name,
-                           'duration': row.duration}, ignore_index=True)
-
-    if len(apps_missing) != 0:
-        print(f'Need to add the following apps to apps.txt: {apps_missing}')
+        new_df = new_df.append({'participantnumber': row.participantnumber,
+                                'timestamp': row.timestamp,
+                                'event': new_app_name,
+                                'duration': row.duration}, ignore_index=True)
 
     return new_df
 
@@ -100,9 +96,94 @@ def rename_apps(input_df):
 def process_all_users(input_path, output_path):
     for file in tqdm(os.listdir(input_path)):
         user_df = process_user(input_path + '/' + file)
-        user_df = rename_apps(user_df)
         user_df.to_csv(output_path + '/' + file, index=False)
+
+
+# merge all created CSVs into one big CSV with all the users
+def merge_csvs():
+    f_path = 'csv_files/mobile_phone_use/processed'
+
+    overall_df = pd.DataFrame({})
+
+    for file in tqdm(os.listdir(f_path)):
+        full_name = f_path + '/' + file
+        curr_df = pd.read_csv(full_name)
+        overall_df = pd.concat([overall_df, curr_df], ignore_index=False)
+
+    overall_df.to_csv('csv_files/crawdad_raw.csv', index=False)
+
+
+# do some pre-processing - CSV is already processed, only thing to do is rename the participant numbers (like ofcom.py)
+def process_merged_csv(path):
+
+    input = pd.read_csv(path)
+
+    users_seen = {}
+    users_count = 1
+
+    # Pro-processing required for Ofcom dataset - sort the data!
+    # Before that, need to convert UUIDs + timestamps to integers, to be sorted
+    # iterate through all the inputs
+    for row in tqdm(input.itertuples(), total=len(input.index)):
+        user = row.participantnumber
+        if user not in users_seen:
+            users_seen[user] = users_count
+            users_count += 1
+        input.at[row.Index, 'participantnumber'] = users_seen[user]
+
+        timestamp = row.timestamp
+        unix_time = int(timestamp) // 1000
+        input.at[row.Index, 'timestamp'] = unix_time
+
+    print('sorting...')
+    input = input.sort_values(['participantnumber', 'timestamp'])
+
+    input = input.dropna()
+
+    # Save the final version, to be used later
+    input.to_csv('csv_files/crawdad_processed.csv', index=False)
 
 
 if __name__ == '__main__':
     process_all_users(INPUT, OUTPUT)
+    # merge_csvs()
+    # process_merged_csv('csv_files/crawdad_raw.csv')
+
+    # OFCOM only has 18 apps
+    # compute_N_pop_apps(18, 'csv_files/crawdad_pop_apps.csv')
+
+
+    # set up arguments, then call the function
+    # input_file = 'csv_files/crawdad_processed.csv'
+    #
+    # output_file = 'csv_files/crawdad_pop_apps.csv'  # needs to be a tuple when weekdays_split is True
+    # # output_file = ('csv_files/ofcom_10_weekdays.csv', 'csv_files/ofcom_10_weekends.csv')
+    #
+    # time_bins = 1440  # in minutes
+    #
+    # pop_apps = []
+    #
+    # weekdays_split = False
+    #
+    # z_scores = False
+    #
+    # day_lim = 7  # limit each person to only day_lim days of data
+    #
+    # user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
+    #
+    # selected_days = ['Day1', 'Day2', 'Day3', 'Day4', 'Day5', 'Day6', 'Day7']
+    #
+    # agg = True
+    #
+    # # remember, caller has to clear output_file
+    # f = open(output_file, "w+")
+    # f.close()
+    #
+    # # f = open(output_file[0], "w+")
+    # # f.close()
+    # # f = open(output_file[1], "w+")
+    # # f.close()
+    #
+    # # Do the analysis
+    # DurationsPerApp(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+    #                 agg=agg).process_data()
