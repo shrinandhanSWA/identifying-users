@@ -2,16 +2,19 @@
 # for now, it's HSU and Ofcom
 
 import pandas as pd
-from process_data import process_data, calc_z_scores
+from process_data import DurationsPerApp, ProcessData
 
 
-# To be excluded from popular apps calculation
-SYSTEM_APPS = ['System UI-Bin1', 'Samsung Experience Home-Bin1', 'TouchWiz Home-Bin1', 'Xperia Home-Bin1',
-               'Android System-Bin1', 'Nova Launcher-Bin1', 'x-Bin1']
+# To be excluded from popular apps.txt calculation
+SYSTEM_APPS = ['System UI-Dur-1', 'Samsung Experience Home-Dur-1', 'TouchWiz Home-Dur-1', 'Xperia Home-Dur-1',
+               'Android System-Dur-1', 'Nova Launcher-Dur-1', 'x-Dur-1']
 
 
 # generate required data
 def generate_data():
+    processor = DurationsPerApp('input_file', 'output_file', 1440, [], False, False, agg=True)
+
+
     # -------------------------------------------------------------------------------------------
 
     # OFCOM!!!
@@ -20,7 +23,14 @@ def generate_data():
     output_file = 'csv_files/ofcom_merge.csv'
     user_lim = 732  # limit number of users, default: 10000 (i.e. no limit)
 
-    process_data(input_file, output_file, weekdays_split=False, z_score=False, user_lim=user_lim)
+    f = open(output_file, "w+")
+    f.close()
+
+    processor.input_file = input_file
+    processor.output_file = output_file
+    processor.user_lim = user_lim
+
+    processor.process_data()
 
     # -------------------------------------------------------------------------------------------
     # HSU!!!
@@ -29,7 +39,13 @@ def generate_data():
     input_file = 'csv_files/EveryonesAppData.csv'
     output_file = 'csv_files/hsu_merge.csv'
 
-    process_data(input_file, output_file, weekdays_split=False, z_score=False)
+    f = open(output_file, "w+")
+    f.close()
+
+    processor.input_file = input_file
+    processor.output_file = output_file
+
+    processor.process_data()
 
 
 # merge raw data - deal with app merge conflicts
@@ -38,16 +54,16 @@ def merge_raw_data():
     hsu = pd.read_csv('csv_files/hsu_merge.csv')
     ofcom = pd.read_csv('csv_files/ofcom_merge.csv')
 
-    # Merging requires the same apps but with different names (hereby merge conflicts) to be resolved
+    # Merging requires the same apps.txt but with different names (hereby merge conflicts) to be resolved
     # Since OFCOM only has 19, I only have to deal with these 19 (will need to be expanded later)
-    # OFCOM apps: BBC News, Facebook, Gmail, Inbox, Instagram, Internet, Maps, Messenger, Nova Launcher,
+    # OFCOM apps.txt: BBC News, Facebook, Gmail, Inbox, Instagram, Internet, Maps, Messenger, Nova Launcher,
     # Outlook, Photos, Snapchat, Spotify, Twitter, WhatsApp, Yahoo Mail, YouTube, eBay
     # Conflicts: Inbox --> Email(?), Internet --> Samsung Internet,
     # Maps --> Maps (not My Maps, just an interesting case)
     # Another note: The names are actually Inbox-Bin1, so need to tackle this
 
     # calculate bins per day
-    bins_per_day = len(ofcom.count()) // 18  # OFCOM only has 18 apps
+    bins_per_day = len(ofcom.count()) // 18  # OFCOM only has 18 apps.txt
     app_names = {'Inbox': 'Email', 'Internet': 'Samsung Internet'}
     app_map = {}
 
@@ -116,7 +132,7 @@ def compute_N_pop_apps(no_apps, data_path):
     return top_apps
 
 
-# get rid of unpopular apps + calculate z scores
+# get rid of unpopular apps.txt + calculate z scores
 def crop_pop_apps(pop_apps, data_path):
     # also get the z scores at the same time
     # for some reason, loading up the merged data introduces its own index
@@ -134,7 +150,7 @@ def crop_pop_apps(pop_apps, data_path):
 
     pop_apps_only = pop_apps_only.fillna(0)
 
-    pop_apps_z = calc_z_scores(pop_apps_only)
+    pop_apps_z = ProcessData.calc_z_scores(pop_apps_only)
 
     # save
     pop_apps_z.to_csv('csv_files/merged.csv')
@@ -154,4 +170,4 @@ def go(gen_data=True, no_apps=18):
 
 
 if __name__ == "__main__":
-    go(False, 18)
+    go(True, 18)
