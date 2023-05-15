@@ -4,14 +4,16 @@ import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-from process_data import process_data, extra_data
-from rf_classifier import all_data_classifier, agg_classifier
+from process_data import DurationsPerApp, DurationsOverall, PickupsPerApp, PickupsOverall, FirstUseTimeApp, \
+    FirstUseTime, AverageDurationPerApp, DurationsAppClass
+from rf_classifier import agg_classifier as rf_classifier
 from lr_classifier import classifier as lr_classifier
+
+import shap
 
 
 # verifying that the ofcom dataset really has 5064 people + plotting how much info there is
 def ofcom_data_analysis():
-
     input = pd.read_csv('csv_files/ofcom_processed.csv')
 
     users_to_days = {}
@@ -52,7 +54,7 @@ def hsu_app_analysis():
 
     cols = list(input.columns)
     cols = [c.split('-')[0] for c in cols]
-    apps_count = {c:0 for c in cols}
+    apps_count = {c: 0 for c in cols}
 
     for row in input.itertuples():
         # go through row
@@ -62,7 +64,7 @@ def hsu_app_analysis():
     sorted_durations = sorted(apps_count.items(), key=lambda x: x[1], reverse=True)
 
     bad_apps = ['System UI', 'Samsung Experience Home', 'TouchWiz Home', 'Xperia Home',
-               'Android System', 'x']  # To be excluded from popular apps calculation]
+                'Android System', 'x']  # To be excluded from popular apps.txt calculation]
 
     top_apps = [x for x, _ in sorted_durations if x not in bad_apps][:19]
 
@@ -70,30 +72,43 @@ def hsu_app_analysis():
 
 
 def time_gran_analysis(name):
-
     files_to_test = {}
     time_bin_list = [60, 180, 360, 720, 1440]
 
     for time_bins in time_bin_list:
-
         # analysis that investigates different activations/thresholds
         # stores results in results.txt, will all be plotted later
         input_file = 'csv_files/ofcom_processed.csv'
         output_file = f'csv_files/AllDays_{time_bins // 60}h.csv'
+        # clear output, as required
+        f = open(output_file, "w+")
+        f.close()
+
         pop_apps = []
         weekdays_split = False
         z_scores = False
         agg = True
         day_lim = 7  # limit each person to only day_lim days of data
         user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
-        process_data(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim, agg=agg)
 
-        # extra data gets varied this time
-        extra_data(input_file, output_file, time_bins, weekdays_split, z_scores, day_lim, user_lim=user_lim, agg=agg)
+        # for FirstUseTime, 3h time bins looks to be the best
+        FirstUseTime(input_file, output_file, 180, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                     agg=agg).process_data()
+        DurationsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                        agg=agg).process_data()
+        DurationsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                         agg=agg).process_data()
+        AverageDurationPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim,
+                              user_lim=user_lim,
+                              agg=agg).process_data()
+        PickupsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                      agg=agg).process_data()
+        PickupsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                       agg=agg).process_data()
         files_to_test[f'{time_bins // 60}h'] = output_file
 
     # once all the data has been generated, call the classifier with these files
-    names, accs, sems = agg_classifier(files_to_test)
+    names, accs, sems = rf_classifier(files_to_test, n_trees=500)
 
     # write to results.txt - to be loaded up later
     with open('results.txt', 'a') as f:
@@ -129,13 +144,17 @@ def plot_results():
         # targ_indices = [19, 23]  # one data point vs sig
         # targ_indices = [19, 24]  # one data point vs tanh
         # targ_indices = [19, 18]  # one data point vs relu
-        targ_indices = [19, 25]  # one data point vs extra info (1 point)
+        # targ_indices = [19, 25]  # one data point vs extra info (1 point)
 
+        # targ_indices = [25, 27]  # overall duration vs overall pickups
+        # targ_indices = [19, 26]  # duration vs pickups per app
+        # targ_indices = [34, 36]  # duration + pickups w/out and w/ pickups per class
+        # targ_indices = [36, 38, 39]  # best one (36) w/ avg. duration/first time of use per bin
+        targ_indices = [36, 40]  # best one vs best one but w/ diff. order
 
         lines = [lines[i] for i in targ_indices]
 
         for line in lines:
-
             line = line.strip()
             line_split = line.split(';')
             name = line_split[0]
@@ -151,9 +170,64 @@ def plot_results():
     plt.show()
 
 
+# Helper to execute the current best configuration
+def get_curr_best():
+    input_file = 'csv_files/ofcom_processed.csv'
+    output_file = f'csv_files/ofcom_best.csv'
+
+    files_to_test = {'curr_best': output_file}
+
+    # clear output, as required
+    f = open(output_file, "w+")
+    f.close()
+
+    pop_apps = []
+    weekdays_split = False
+    z_scores = False
+    agg = True
+    day_lim = 7  # limit each person to only day_lim days of data
+    user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
+
+    FirstUseTime(input_file, output_file, 180, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                 agg=agg).process_data()
+    DurationsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                    agg=agg).process_data()
+    DurationsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                     agg=agg).process_data()
+    AverageDurationPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim,
+                          user_lim=user_lim,
+                          agg=agg).process_data()
+    PickupsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                  agg=agg).process_data()
+    PickupsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                   agg=agg).process_data()
+
+    _, acc, sem = rf_classifier(files_to_test, n_trees=100)
+
+    print(f'Best accuracy is {acc[0]}% with sem of {sem[0]*100}%')
+
+    # return model, test_data
+
+
+# function that does a SHAP analysis on a given model on the given data (needs to be only the data i.e. no labels)
+def network_analysis(model, data):
+
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(data)
+
+    np.abs(shap_values.sum(1) + explainer.expected_value - pred).max()
+    explainer = shap.explainers.Linear(model, data)
+    shap_values = explainer(data)
+
+    shap.plots.scatter(shap_values[:, 0])
+
+
 if __name__ == "__main__":
     # ofcom_data_analysis()
     # hsu_app_analysis()
-    # time_gran_analysis('overall-info')
-    plot_results()
+    # time_gran_analysis('more-trees')
+    # plot_results()
+    get_curr_best()
+    # network_analysis(net, data)
+
     print()
