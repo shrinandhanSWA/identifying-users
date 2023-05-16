@@ -35,21 +35,21 @@ com.ebay.mobile:eBay
 com.yahoo.mobile.client.android.mail:Yahoo Mail
 com.spotify.music:Spotify
 com.snapchat.android:Snapchat
-com.google.android.apps.photos:Gallery
-com.android.gallery3d:Gallery
-com.sec.android.gallery3d:Gallery
-com.motorola.MotGallery2:Gallery
-com.bq.gallerybq:Gallery
-com.cyngn.gallerynext:Gallery
-com.google.android.gallery3d:Gallery
-com.meizu.media.gallery:Gallery
-com.miui.gallery:Gallery
-com.asus.gallery:Gallery
-com.motorola.motgallery:Gallery
-com.moblynx.galleryics:Gallery
-com.jrdcom.android.gallery3d:Gallery
-com.fstop.photo:Gallery
-com.melero.photos:Gallery
+com.google.android.apps.photos:Photos
+com.android.gallery3d:Photos
+com.sec.android.gallery3d:Photos
+com.motorola.MotGallery2:Photos
+com.bq.gallerybq:Photos
+com.cyngn.gallerynext:Photos
+com.google.android.gallery3d:Photos
+com.meizu.media.gallery:Photos
+com.miui.gallery:Photos
+com.asus.gallery:Photos
+com.motorola.motgallery:Photos
+com.moblynx.galleryics:Photos
+com.jrdcom.android.gallery3d:Photos
+com.fstop.photo:Photos
+com.melero.photos:Photos
 com.microsoft.office.outlook:Outlook
 org.telegram.messenger:Telegram
 com.linkedin.android:LinkedIn
@@ -147,8 +147,8 @@ it.onecalculator:Calculator
 com.meizu.flyme.calculator:Calculator
 com.lrhsoft.shiftercalendar:Work Shift Calculator
 com.underwood.calendar_beta:Calculator
-com.amazon.clouddrive.photos:Gallery
-com.synology.dsphoto:Gallery
+com.amazon.clouddrive.photos:Photos
+com.synology.dsphoto:Photos
 linkto.mailemail.fastaccess:Access Email
 com.syntomo.email:Syntomo Email
 com.samsung.android.email.composer:Inbox

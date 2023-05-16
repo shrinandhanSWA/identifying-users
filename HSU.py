@@ -5,26 +5,36 @@ import pandas as pd
 
 # Helper function to merge Messenger + Messaging, also Photos + Gallery
 def unify_apps():
-
     original_hsu = pd.read_csv('csv_files/EveryonesAppData.csv')
 
     new_hsu = original_hsu.copy(deep=True)
 
+    # list of all the renaming that needs to be done for HSU apps
     for row in new_hsu.itertuples():
-        if row.event == ' Photos':
-            new_hsu.at[row.Index, 'event'] = ' Gallery'
-        if row.event == ' Messaging':
+        if row.event in [' Open Camera', 'SafeCamera']:
+            new_hsu.at[row.Index, 'event'] = ' Camera'
+        if row.event in [' Gallery', ' Photobooks']:
+            new_hsu.at[row.Index, 'event'] = ' Photos'
+        if row.event in [' Messaging', ' Messages']:
             new_hsu.at[row.Index, 'event'] = ' Messenger'
-        if row.event in [' Chrome', ' Firefox']:
+        if row.event in [' Chrome', ' Firefox', ' Samsung Internet']:
             new_hsu.at[row.Index, 'event'] = ' Internet'
-
+        if row.event == ' Puzzle Alarm Clock':
+            new_hsu.at[row.Index, 'event'] = ' Clock'
+        if row.event == ' My Maps':
+            new_hsu.at[row.Index, 'event'] = ' Maps'
+        if row.event == ' Dialler':
+            new_hsu.at[row.Index, 'event'] = ' Phone'
+        if row.event in [' Audio settings', ' com.qualcomm.qti.networksetting', ' Settings Suggestions']:
+            new_hsu.at[row.Index, 'event'] = ' Settings'
+        if row.event == ' Email':
+            new_hsu.at[row.Index, 'event'] = ' Inbox'
 
     new_hsu.to_csv('csv_files/EveryonesAppDataUnified.csv', index=False)
 
 
 # process raw data
 def process():
-
     # set up arguments, then call the function
     input_file = 'csv_files/EveryonesAppData.csv'
 
@@ -63,6 +73,7 @@ def process():
     DurationsPerApp(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
                     agg=agg).process_data()
 
+
 if __name__ == "__main__":
-    # unify_apps()
-    process()
+    unify_apps()
+    # process()
