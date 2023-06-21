@@ -4,10 +4,14 @@ import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+from merge_datasets import compute_N_pop_apps
 from process_data import DurationsPerApp, DurationsOverall, PickupsPerApp, PickupsOverall, FirstUseTimeApp, \
-    FirstUseTime, AverageDurationPerApp, DurationsAppClass
-from rf_classifier import agg_classifier as rf_classifier
+    FirstUseTime, AverageDurationPerApp, DurationsAppClass, Fingerprint, MeanDurationBetweenPickups, PickupsAppClass, \
+    LastUseTime, LastUseTimeApp
+from rf_classifier import agg_classifier as rf_classifier, weekdays_plot, agg_classifier, line_plot, all_data_classifier
 from lr_classifier import classifier as lr_classifier
+from scipy.interpolate import make_interp_spline, BSpline
+import numpy as np
 
 import shap
 
@@ -71,15 +75,75 @@ def hsu_app_analysis():
     print(top_apps)
 
 
-def time_gran_analysis(name):
+# Helper to run the analysis that determines the optimal temporal resolution for a metric
+def time_gran_analysis():
     files_to_test = {}
-    time_bin_list = [60, 180, 360, 720, 1440]
+    files_to_plot = {}
+    time_bin_list = [60, 180, 360, 720, 1440]  # resolutions to test
+
+    name = 'csv_files/ofcom_pickup_app'
+    print_name = 'Pickups per App Class\n'
 
     for time_bins in time_bin_list:
         # analysis that investigates different activations/thresholds
         # stores results in results.txt, will all be plotted later
+
+        time_bin = time_bins // 60
+
         input_file = 'csv_files/ofcom_processed.csv'
-        output_file = f'csv_files/AllDays_{time_bins // 60}h.csv'
+        output_file = f'{name}_{time_bin}h.csv'
+        # clear output, as required
+        f = open(output_file, "w+")
+        f.close()
+
+        weekdays_split = False
+        z_scores = False
+        agg = True
+        day_lim = 7  # limit each person to only day_lim days of data
+        user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
+
+        # PICKUPS
+        # Pickups per App Class is being test here
+        PickupsPerApp(input_file, output_file, 1440, [], weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                      agg=agg).process_data()
+        MeanDurationBetweenPickups(input_file, output_file, 1440, [], weekdays_split, z_scores, day_lim,
+                                   user_lim=user_lim,
+                                   agg=agg).process_data()
+        PickupsAppClass(input_file, output_file, time_bins, [], weekdays_split, z_scores, day_lim, user_lim=user_lim,
+                        agg=agg).process_data()
+
+        files_to_test[f'{output_file}'] = output_file
+
+        bin_print_name = f'{print_name} \n{time_bin}h resolution'
+        files_to_plot[f'{bin_print_name}'] = f'{name}_{time_bin}h.pickle'
+
+
+    # once all the data has been generated, call the classifier with these files
+    agg_classifier(files_to_test, n_trees=100)
+
+    title = 'The effect of Temporal Resolution - Pickups per App Class'
+    weekdays_plot(files_to_plot, title)
+
+    return files_to_test
+
+
+# function that analyzes the impact of adding more data
+def data_time_analysis():
+    files_to_test = {}
+    files_to_plot = {}
+
+    # number of days of data to use
+    time_bin_list = [7, 14, 21, 28, 35]
+
+    name = 'csv_files/ofcom_duration'
+    print_name = 'Duration'
+
+    for day_lim in time_bin_list:
+        # analysis that investigates different activations/thresholds
+        # stores results in results.txt, will all be plotted later
+
+        input_file = 'csv_files/ofcom_processed.csv'
+        output_file = f'{name}_{day_lim}_days.csv'
         # clear output, as required
         f = open(output_file, "w+")
         f.close()
@@ -87,46 +151,106 @@ def time_gran_analysis(name):
         pop_apps = []
         weekdays_split = False
         z_scores = False
-        agg = True
-        day_lim = 7  # limit each person to only day_lim days of data
+        agg = False
         user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
 
-        # for FirstUseTime, 3h time bins looks to be the best
-        FirstUseTime(input_file, output_file, 180, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                     agg=agg).process_data()
-        DurationsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+        # metrics to test
+        DurationsPerApp(input_file, output_file, 180, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
                         agg=agg).process_data()
-        DurationsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
+        DurationsOverall(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
                          agg=agg).process_data()
         AverageDurationPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim,
                               user_lim=user_lim,
                               agg=agg).process_data()
-        PickupsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                      agg=agg).process_data()
-        PickupsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                       agg=agg).process_data()
-        files_to_test[f'{time_bins // 60}h'] = output_file
+        DurationsAppClass(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim,
+                              user_lim=user_lim,
+                              agg=agg).process_data()
+
+        files_to_test[f'{output_file}'] = output_file
+
+        bin_print_name = f'{print_name} {day_lim} Days'
+        files_to_plot[f'{bin_print_name}'] = f'{name}_{day_lim}_days.pickle'
+
 
     # once all the data has been generated, call the classifier with these files
-    names, accs, sems = rf_classifier(files_to_test, n_trees=500)
+    all_data_classifier(files_to_test)
 
-    # write to results.txt - to be loaded up later
-    with open('results.txt', 'a') as f:
-        to_write = [name, ';']
-        for acc in accs:
-            to_write.append(str(acc))
-            to_write.append(',')
-        to_write = to_write[:-1]
-        to_write.append(';')
-        for sem in sems:
-            to_write.append(str(sem))
-            to_write.append(',')
-        to_write = to_write[:-1]
-        to_write.append('\n')
+    print(files_to_plot)
 
-        f.write(''.join(to_write))
+    title = 'The effect of adding more data - Durations'
 
-    return
+    weekdays_plot(files_to_plot, title)
+
+    return files_to_test
+
+
+# checking how unique the fingerprints are from a given file(s)
+def check_fingerprint_uniqueness(files_to_test):
+
+    dupes_list = []
+
+    # do analysis for each given file
+    for f_name, f_path in files_to_test.items():
+        # load data from CSV
+        input_df = pd.read_csv(f_path)
+
+        users = list(set([row.Person for row in input_df.itertuples()]))
+
+        # then, extract the fingerprint information
+        fingerprints = {u:[] for u in users}
+        for row in input_df.itertuples():
+
+            row = list(row)
+            user = row[1]
+            data = row[3:]  # this is for a user for a certain day
+            fingerprints[user].append(data)
+
+        # now each user will have a list of fingerprints, one per day
+        # I am merging these --> like in the other works
+        for u, prints in fingerprints.items():
+
+            new_prints = [0 for _ in range(len(prints[0]))]
+
+            for printe in prints:
+                for i, p in enumerate(printe):
+                    if p == 1:
+                        new_prints[i] = 1
+
+            fingerprints[u] = new_prints
+
+
+        # Dictionary of fingerprints to their counts
+        prints = {}
+
+        for f in fingerprints.values():
+            encoding = encode_fingerprint(f)
+
+            # increment the number of times this fingerprint has been seen
+            prints[encoding] = prints.get(encoding, 0) + 1
+
+        # count the number of duplicates i.e. fingerprints with a count of more than 1
+        dupes = sum([x for _, x in prints.items() if x > 1])
+
+        dupes_list.append(dupes)
+
+        print(f'There were {dupes} out of {len(list(fingerprints.values()))}')
+
+    return dupes_list
+
+
+# unique encoding for a fingerprint - easier comparison
+def encode_fingerprint(fingerprint):
+
+    encoding = []
+
+    for i, p in enumerate(fingerprint):
+        if p == 1:
+            encoding.append(str(i))
+            encoding.append('-')
+
+    encoding = ''.join(encoding)
+
+    return encoding
 
 
 # helper to plot the results in results.txt
@@ -164,70 +288,112 @@ def plot_results():
 
             plt.errorbar(x=labels, y=means, yerr=sems, capsize=10, fmt='o', label=f'{name}')
 
-    plt.xlabel('time bins (h)')
-    plt.ylabel('accuracy')
-    plt.legend()
+
+# helper to calculate the average minimum hamming distance for each file
+def check_hamming_distances(files):
+
+    distances = []
+
+    # do analysis for each given file
+    for f_name, f_path in files.items():
+        # load data from CSV
+        input_df = pd.read_csv(f_path)
+
+        users = list(set([row.Person for row in input_df.itertuples()]))
+
+        # then, extract the fingerprint information
+        fingerprints = {u: [] for u in users}
+        for row in input_df.itertuples():
+            row = list(row)
+            user = row[1]
+            data = row[3:]  # this is for a user for a certain day
+            fingerprints[user].append(data)
+
+        # now each user will have a list of fingerprints, one per day
+        # I am merging these --> like in the other works
+        for u, prints in fingerprints.items():
+
+            new_prints = [0 for _ in range(len(prints[0]))]
+
+            for printe in prints:
+                for i, p in enumerate(printe):
+                    if p == 1:
+                        new_prints[i] = 1
+
+            fingerprints[u] = new_prints
+
+        minimum_distances = []
+
+        # given the fingerprints, need to find the minimum hamming distance for each user
+        for u, prints in fingerprints.items():
+
+            # init to big value
+            min_distance = 100000
+
+            # iterate through all other users, calc distance, update min if required
+            for o, o_prints in fingerprints.items():
+
+                # skip themselves
+                if u == o:
+                    continue
+
+                # ham distance is len(union) - len(intersection)
+                union = [min(x + y, 1) for x, y in zip(prints, o_prints)]  # 0 if none, 1 if either or both
+                inter = [int((x + y) == 2) for x, y in zip(prints, o_prints)]  # 1 if both used
+
+                ham_distance = sum(union) - sum(inter)
+
+                min_distance = min(ham_distance, min_distance)
+
+            minimum_distances.append(min_distance)
+
+        # average
+        avg_min_ham_dist = sum(minimum_distances) / len(minimum_distances)
+
+        distances.append(avg_min_ham_dist)
+
+        print(f'Resolution of {f_name} had a minimum Hamming Distance of {avg_min_ham_dist}')
+
+    return distances
+
+
+# plot a line graph with 2 axes
+def dual_line_plot(xs, y1, y2):
+    fig, ax1 = plt.subplots(figsize=(9, 6), tight_layout=True)
+    ax2 = ax1.twinx()
+
+    COLOR_1 = "#69b3a2"
+    COLOR_2 = "#3399e6"
+
+    ax2.plot(xs, y1, color=COLOR_1, lw=4, label='Average Minimum Hamming Distance')
+    ax1.plot(xs, y2, color=COLOR_2, lw=4, label='Number of Anonymous Users')
+
+    ax1.set_xlabel("Number of Weeks of Data")
+
+    ax1.set_ylabel("Number of Anonymous Users", color=COLOR_2, fontsize=18)
+    ax1.tick_params(axis="y", labelcolor=COLOR_2)
+
+    ax2.set_ylabel("Average Minimum Hamming Distance", color=COLOR_1, fontsize=18)
+    ax2.tick_params(axis="y", labelcolor=COLOR_1)
+
+    ax1.xaxis.labelpad = 15
+    ax1.yaxis.labelpad = 15
+    ax2.yaxis.labelpad = 15
+
+    # ax1.set_xticklabels(list(xs), rotation=25, fontsize=16)
+
+    ax1.yaxis.grid(True, linestyle='-', which='major', color='lightgrey',
+                   alpha=0.5)
+    ax1.xaxis.grid(True, linestyle='-', which='major', color='lightgrey',
+                   alpha=0.5)
+
+    fig.suptitle("Effect of Considering Different Amounts of Data \n on Min. Hamming Distance & # Anonymous Users", fontsize=20)
+
     plt.show()
 
 
-# Helper to execute the current best configuration
-def get_curr_best():
-    input_file = 'csv_files/ofcom_processed.csv'
-    output_file = f'csv_files/ofcom_best.csv'
-
-    files_to_test = {'curr_best': output_file}
-
-    # clear output, as required
-    f = open(output_file, "w+")
-    f.close()
-
-    pop_apps = []
-    weekdays_split = False
-    z_scores = False
-    agg = True
-    day_lim = 7  # limit each person to only day_lim days of data
-    user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
-
-    FirstUseTime(input_file, output_file, 180, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                 agg=agg).process_data()
-    DurationsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                    agg=agg).process_data()
-    DurationsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                     agg=agg).process_data()
-    AverageDurationPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim,
-                          user_lim=user_lim,
-                          agg=agg).process_data()
-    PickupsPerApp(input_file, output_file, 1440, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                  agg=agg).process_data()
-    PickupsOverall(input_file, output_file, 360, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                   agg=agg).process_data()
-
-    _, acc, sem = rf_classifier(files_to_test, n_trees=100)
-
-    print(f'Best accuracy is {acc[0]}% with sem of {sem[0]*100}%')
-
-    # return model, test_data
-
-
-# function that does a SHAP analysis on a given model on the given data (needs to be only the data i.e. no labels)
-def network_analysis(model, data):
-
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(data)
-
-    np.abs(shap_values.sum(1) + explainer.expected_value - pred).max()
-    explainer = shap.explainers.Linear(model, data)
-    shap_values = explainer(data)
-
-    shap.plots.scatter(shap_values[:, 0])
-
-
 if __name__ == "__main__":
-    # ofcom_data_analysis()
-    # hsu_app_analysis()
-    # time_gran_analysis('more-trees')
-    # plot_results()
-    get_curr_best()
-    # network_analysis(net, data)
+    # sample
+    files = time_gran_analysis()
 
-    print()
+
