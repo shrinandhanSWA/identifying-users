@@ -1,18 +1,22 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.multiclass import OneVsRestClassifier
 from scipy.stats import sem
 from statistics import mean
 import matplotlib.pyplot as plt
+from sklearn.utils._testing import ignore_warnings
+from sklearn.exceptions import ConvergenceWarning
+
+from rf_classifier import network_analysis
 
 
+@ignore_warnings(category=ConvergenceWarning)
 # weekday classifier
 def classifier(files_to_test):
-
     names = list(files_to_test.keys())
     avg_accs = []
     avg_sems = []
-
 
     # do analysis for each given file
     for f_name, f_path in files_to_test.items():
@@ -29,7 +33,8 @@ def classifier(files_to_test):
             users_data[user] = []
 
         # Calculate the days
-        test_days = sorted(list(set([row.Day for row in input_df.itertuples()])))
+        test_days = sorted(list(set([row.Day.split('-')[0] for row in input_df.itertuples()])))
+
 
         # Run analysis across each day in test_days
         for test_day in test_days:
@@ -46,7 +51,7 @@ def classifier(files_to_test):
                 row = list(row)
 
                 person = row[1]
-                day = row[2]
+                day = row[2].split('-')[0]
                 data = row[3:]
 
                 if day == test_day:
@@ -55,7 +60,6 @@ def classifier(files_to_test):
                 else:
                     training_labels.append(person)
                     training_set.append(data)
-
 
             # convert everything to numpy arrays
             training_set = np.array(training_set)
@@ -70,9 +74,13 @@ def classifier(files_to_test):
             np.random.seed(seed)
             np.random.shuffle(training_labels)
 
-            lr = LogisticRegression(multi_class='multinomial', max_iter=500)
+            lr = LogisticRegression(multi_class='ovr', class_weight='balanced', solver='newton-cg', max_iter=100)
+
+            print('fitting classifier')
 
             lr.fit(training_set, training_labels)
+
+            print('testing classifier')
 
             predictions = lr.predict(test_set)
 
@@ -104,7 +112,6 @@ def classifier(files_to_test):
 
 
 if __name__ == '__main__':
-
-    files_to_test = {'OFCOM': 'csv_files/AllDays.csv', 'OFCOM_WEEKDAY_ONLY': 'csv_files/Weekdays.csv'}
+    files_to_test = {'OFCOM': 'csv_files/ofcom_combined_target_times_5_weeks.csv'}
 
     classifier(files_to_test)
