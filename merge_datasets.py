@@ -5,15 +5,24 @@ import pandas as pd
 from process_data import DurationsPerApp, ProcessData
 
 
-# To be excluded from popular apps.txt calculation
+# To be excluded from popular apps calculation
 SYSTEM_APPS = ['System UI-Dur-1', 'Samsung Experience Home-Dur-1', 'TouchWiz Home-Dur-1', 'Xperia Home-Dur-1',
-               'Android System-Dur-1', 'Nova Launcher-Dur-1', 'x-Dur-1']
+               'Android System-Dur-1', 'Nova Launcher-Dur-1', 'x-Dur-1', 'Pixel Launcher-Dur-1,'
+                'org.pielot.sns-Dur-1', '-android-Dur-1', 'com.android.keyguard-Dur-1'
+               '+com.sec.android.app.launcher-Dur-1', 'com.cleanmaster.security-Dur-1',
+               '+com.android.launcher3-Dur-1', 'com.huawei.systemmanager-Dur-1', 'org.pielot.sns2-Dur-1',
+               '-com.android.systemui-Dur-1', '=com.android.inputmethod.latin-Dur-1',
+               'org.pielot.sns-Dur-1', 'com.android.keyguard-Dur-1',
+               '+com.sec.android.app.launcher-Dur-1', '+com.android.launcher-Dur-1',
+               '+com.huawei.android.launcher-Dur-1', '+com.miui.home-Dur-1', '+com.sonyericsson.home-Dur-1',
+               'com.sec.android.app.sbrowser-Dur-1', 'com.cleanmaster.mguard-Dur-1', 'com.kingroot.kinguser-Dur-1',
+               'com.android.dreams.basic-Dur-1', 'com.lge.shutdownmonitor-Dur-1', '+com.android.launcher5.bird-Dur-1',
+               '=com.google.android.inputmethod.latin-Dur-1']
 
 
 # generate required data
 def generate_data():
     processor = DurationsPerApp('input_file', 'output_file', 1440, [], False, False, agg=True)
-
 
     # -------------------------------------------------------------------------------------------
 
@@ -123,11 +132,14 @@ def compute_N_pop_apps(no_apps, data_path):
         col = merged[col_name]
         total_duration = int(col.mean())
 
+
+
         app_durations[col_name] = total_duration
+
 
     sorted_durations = sorted(app_durations.items(), key=lambda x: x[1], reverse=True)
 
-    top_apps = [x for x, _ in sorted_durations[:no_apps]]
+    top_apps = [x.split('-')[0] for x, _ in sorted_durations[:no_apps]]
 
     return top_apps
 
