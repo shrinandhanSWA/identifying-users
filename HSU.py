@@ -1,9 +1,13 @@
 # Script that generates time event matrices for HSU data
-from process_data import DurationsPerApp
+from merge_datasets import compute_N_pop_apps
+from process_data import DurationsPerApp, Fingerprint, PickupsPerApp
 import pandas as pd
 
 
 # Helper function to merge Messenger + Messaging, also Photos + Gallery
+from rf_classifier import agg_classifier, line_plot
+
+
 def unify_apps():
     original_hsu = pd.read_csv('csv_files/EveryonesAppData.csv')
 
@@ -38,11 +42,11 @@ def process():
     # set up arguments, then call the function
     input_file = 'csv_files/EveryonesAppData.csv'
 
-    output_file = 'csv_files/TimeBehavProf46.csv'  # needs to be a tuple when weekdays_split is True
-    # output_file = ('csv_files/ofcom_10_weekdays.csv', 'csv_files/ofcom_10_weekends.csv')
+    output_file = 'csv_files/TimeBehavProf46AllApps.csv'  # needs to be a tuple when weekdays_split is True
 
     time_bins = 1440  # in minutes
 
+    # original set of popular apps (21 - 2 that were merged)
     pop_apps = ['Calculator', 'Calendar', 'Camera', 'Clock', 'Contacts', 'Facebook',
                 'Gallery', 'Gmail', 'Google Play Store', 'Google Search', 'Instagram',
                 'Internet', 'Maps', 'Messaging', 'Messenger', 'Phone', 'Photos',
@@ -52,11 +56,11 @@ def process():
 
     z_scores = False
 
-    day_lim = 7  # limit each person to only day_lim days of data
+    day_lim = 5  # limit each person to only day_lim days of data
 
     user_lim = 778  # limit number of users, default: 10000 (i.e. no limit)
 
-    selected_days = ['Day1', 'Day2', 'Day3', 'Day4', 'Day5', 'Day6', 'Day7']
+    selected_days = ['Day1', 'Day2', 'Day4', 'Day5', 'Day6']
 
     agg = True
 
@@ -64,16 +68,6 @@ def process():
     f = open(output_file, "w+")
     f.close()
 
-    # f = open(output_file[0], "w+")
-    # f.close()
-    # f = open(output_file[1], "w+")
-    # f.close()
-
     # Do the analysis
     DurationsPerApp(input_file, output_file, time_bins, pop_apps, weekdays_split, z_scores, day_lim, user_lim=user_lim,
-                    agg=agg).process_data()
-
-
-if __name__ == "__main__":
-    unify_apps()
-    # process()
+                    selected_days=selected_days, agg=agg).process_data()
