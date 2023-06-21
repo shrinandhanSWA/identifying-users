@@ -35,7 +35,7 @@ class ProcessData(ABC):
     # initialize parameters
     def __init__(self, input_file, output_file, time_gran=1440, pop_apps=(), weekdays_split=True, z_score=True,
                  day_lim=7,
-                 selected_days=WEEKDAYS + WEEKENDS, user_lim=10000, agg=False):
+                 selected_days=WEEKDAYS + WEEKENDS, user_lim=10000, agg=False, verbose=False):
         self.input_file = input_file
         self.output_file = output_file
         self.time_gran = time_gran
@@ -46,6 +46,7 @@ class ProcessData(ABC):
         self.selected_days = selected_days
         self.user_lim = user_lim
         self.agg = agg
+        self.verbose = verbose
 
         # check compatibility of these 2 arguments if agg is true
         if self.agg:
@@ -78,8 +79,9 @@ class ProcessData(ABC):
             if avg == 0:
                 to_be_removed.append(col_name)
             else:
-                col = col.apply(lambda x: (x - avg) / std if std != 0 else 0)
+                # col = col.apply(lambda x: (x - avg) / std if std != 0 else 0)
                 # col = col.apply(lambda x: (x - min) / (max - min) if std != 0 else 0)
+                col = col.apply(lambda x: math.log(x) if x != 0 else 0)
 
                 df[col_name] = col
 
@@ -186,6 +188,7 @@ class ProcessData(ABC):
         return indices, all_data
 
     # Helper to aggregate user data (when the AGG flag is False)
+    # A user's data is only complete if the day_lim days are contiguous
     def aggregate_user_info(self, data, day_lim, expected_days):
         # data: {day_of_week --> [day_info_dicts]}
         days = []
@@ -194,9 +197,8 @@ class ProcessData(ABC):
         days_done = 0  # needs to be <= day_lim
         day = 0
         progress = False
+        complete = True
         day_counters = {i: 1 for i in range(7)}
-
-        acc_lim = expected_days * 5  # 10 for weekends, 25 for weekdays
 
         while days_done < day_lim:
 
@@ -205,7 +207,10 @@ class ProcessData(ABC):
                 del data[day][0]
 
                 days_info.append(curr_day_info)
-                days.append(f'Day{day + 1}-{day_counters[day]}')
+
+                new_day_str = f'Day{day + 1}-{day_counters[day]}'
+
+                days.append(new_day_str)
                 day_counters[day] += 1
 
                 days_done += 1
@@ -220,42 +225,22 @@ class ProcessData(ABC):
                 else:
                     break
 
+        # check days for completeness
+        if expected_days != 0:
+            max_weeks = day_lim // expected_days
+            # there should not be anything after the - that is bigger than max_weeks
+            for day in days:
+                week = int(day.split('-')[1])
+                if week > max_weeks:
+                    complete = False
+                    break
 
-        # if expected days is 2, then we will already have the required number of days
-        if expected_days == 7:  # this is all_days, need 3 random weekends and 7 random weekdays (over time)
-            # TODO
-            pass
-        # if expected_days == 5:  # pick 2 random weekdays per week
-        #     new_days = []
-        #     new_info = []
-        #
-        #     # step 1: split days into weeks
-        #     weeks = [[] for _ in range(5)]
-        #     weeks_days = [[] for _ in range(5)]
-        #     for day, info in zip(days, days_info):
-        #         curr_week = int(day.split('-')[-1]) - 1
-        #         if curr_week >= 5:
-        #             break
-        #         weeks[curr_week].append(info)
-        #         weeks_days[curr_week].append(day)
-        #
-        #     # step 2: for each week, pick 2 random days
-        #     for i, week in enumerate(weeks):
-        #         # pick 2 days
-        #         if len(week) < 2:
-        #             break
-        #
-        #         import random
-        #         indices = random.sample(range(len(week)), 2)
-        #         for index in indices:
-        #             new_days.append(weeks_days[i][index])
-        #             new_info.append(week[index])
-        #
-        #     # put it all back
-        #     days = new_days
-        #     days_info = new_info
+        # # to get 10 contiguous days
+        # if expected_days != 0:
+        #     complete = ['Day1-1', 'Day1-2', 'Day2-1', 'Day2-2', 'Day3-1',
+        #                 'Day3-2', 'Day4-1', 'Day5-1', 'Day6-1', 'Day7-1'] == sorted(days)
 
-        all_data = (days_done >= day_lim and len(days) == 10) or (expected_days == 0)
+        all_data = (days_done >= day_lim and complete) or (expected_days == 0)
 
         return days_info, days, all_data
 
@@ -370,7 +355,10 @@ class ProcessData(ABC):
 
         # all time bins - split into weekdays and weekends if required
         # granularity of time bins is determined by the time_gran variable (in min)
-        no_bins = MINS_IN_DAY // self.time_gran
+        if MINS_IN_DAY % self.time_gran == 0:
+            no_bins = MINS_IN_DAY // self.time_gran
+        else:
+            no_bins = MINS_IN_DAY // self.time_gran + 1  # for uneven splits
 
         # helper variables
         curr_user = None
@@ -393,7 +381,7 @@ class ProcessData(ABC):
         weekend_days = [5, 6] if self.weekdays_split else []
 
         # iterate through all the inputs
-        for row in tqdm(input.itertuples(), total=len(input.index)):
+        for row in tqdm(input.itertuples(), total=len(input.index), disable=not self.verbose):
             user = row.participantnumber
             timestamp = row.timestamp
             app = row.event.strip()
@@ -446,10 +434,18 @@ class ProcessData(ABC):
 
             # determine which time bin the current time is in
             curr_event_min = curr_event_time.hour * 60 + curr_event_time.minute
-            curr_event_bin = curr_event_min // self.time_gran
+
+            if MINS_IN_DAY % self.time_gran == 0:
+                curr_event_bin = curr_event_min // self.time_gran
+            else:
+                curr_event_bin = curr_event_min // self.time_gran
 
             # create bin name
             bin_name = self.get_bin_name(app, curr_event_bin)
+
+            # Option to skip some bins, if get_bin_name returns None
+            if not bin_name:
+                continue
 
             if curr_event_day in weekend_days:  # weekend
                 self.add_info(curr_user_weekend_dict, curr_event_day, bin_name, duration, curr_event_time)
@@ -472,15 +468,20 @@ class ProcessData(ABC):
         # if the output file(s) are empty CSVs, need to make an empty dataframe + a check for this
         if self.weekdays_split:
             # assumes output_file has 2 things - one for weekdays, and the other for weekends, in that order!
-            curr_output_weekday = pd.read_csv(self.output_file[0], index_col=[0, 1]) if self.is_non_zero_file(self.output_file[0]) \
+            curr_output_weekday = pd.read_csv(self.output_file[0], index_col=[0, 1]) if self.is_non_zero_file(
+                self.output_file[0]) \
                 else pd.DataFrame({})
-            curr_output_weekend = pd.read_csv(self.output_file[1], index_col=[0, 1]) if self.is_non_zero_file(self.output_file[1]) \
+            curr_output_weekend = pd.read_csv(self.output_file[1], index_col=[0, 1]) if self.is_non_zero_file(
+                self.output_file[1]) \
                 else pd.DataFrame({})
 
             new_output_weekday = pd.concat(
                 [curr_output_weekday, users_weekday_df], axis=1)
             new_output_weekend = pd.concat(
                 [curr_output_weekend, users_weekend_df], axis=1)
+
+            new_output_weekday = new_output_weekday.dropna()
+            new_output_weekend = new_output_weekend.dropna()
 
             new_output_weekday.to_csv(self.output_file[0])
             new_output_weekend.to_csv(self.output_file[1])
@@ -491,6 +492,9 @@ class ProcessData(ABC):
                 pd.DataFrame({})
             new_output = pd.concat(
                 [curr_output, users_weekday_df], axis=1)
+
+            new_output = new_output.dropna()
+
             new_output.to_csv(self.output_file)
 
 
@@ -598,14 +602,14 @@ class PickupsOverall(ProcessData):
 
 
 class DurationsAppClass(ProcessData):
-    app_classes = ['Social', 'Info', 'Entertainment', 'Productivity', 'Travel', 'Utilities', 'Creativity', 'Shopping']
-    app_to_class = {'BBC News': 'Info', 'Facebook': 'Social', 'Gmail': 'Productivity', 'Inbox': 'Productivity',
-                    'Instagram': 'Social', 'Internet': 'Utilities', 'Maps': 'Travel', 'Messenger': 'Social',
-                    'Nova Launcher': 'Utilities', 'Outlook': 'Productivity', 'Photos': 'Creativity',
-                    'Snapchat': 'Social', 'Spotify': 'Entertainment', 'Twitter': 'Social', 'WhatsApp': 'Social',
-                    'Yahoo Mail': 'Productivity', 'YouTube': 'Entertainment', 'eBay': 'Shopping'}
+    app_classes = ['Social', 'Productivity', 'Entertainment']
+    app_to_class = {'Facebook': 'Social', 'Gmail': 'Productivity', 'Inbox': 'Productivity',
+                    'Instagram': 'Social', 'Messenger': 'Social',
+                    'Outlook': 'Productivity', 'Snapchat': 'Social', 'Spotify': 'Entertainment',
+                    'Twitter': 'Social', 'WhatsApp': 'Social', 'Yahoo Mail': 'Productivity',
+                    'YouTube': 'Entertainment'}
 
-    # eBay as creativity seems sus, and only BBC News is in Social and only Maps is in Travel.
+    # eBay as creativity seems sus, and only BBC News is in Info and only Maps is in Travel.
     # I think these are OK though since they are distinct, the idea is grouping similar apps
 
     def create_bins(self, ori_dict, apps, bins, day_of_week):
@@ -621,29 +625,29 @@ class DurationsAppClass(ProcessData):
         return ori_dict
 
     def get_bin_name(self, app, bin):
-        return self.app_to_class[app] + '-Dur-' + str(bin + 1)
+        if app in self.app_to_class:
+            return self.app_to_class[app] + '-Dur-' + str(bin + 1)
+        else:
+            return None
 
     def add_info(self, dict, day, bin_name, duration, curr_time):
         return durations(dict, day, bin_name, duration)
 
 
 class PickupsAppClass(ProcessData):
-    app_classes = ['Social', 'Info', 'Entertainment', 'Productivity', 'Travel', 'Utilities', 'Creativity', 'Shopping']
-    app_to_class = {'BBC News': 'Info', 'Facebook': 'Social', 'Gmail': 'Productivity', 'Inbox': 'Productivity',
-                    'Instagram': 'Social', 'Internet': 'Utilities', 'Maps': 'Travel', 'Messenger': 'Social',
-                    'Nova Launcher': 'Utilities', 'Outlook': 'Productivity', 'Photos': 'Creativity',
-                    'Snapchat': 'Social', 'Spotify': 'Entertainment', 'Twitter': 'Social', 'WhatsApp': 'Social',
-                    'Yahoo Mail': 'Productivity', 'YouTube': 'Entertainment', 'eBay': 'Shopping'}
-
-    # eBay as creativity seems sus, and only BBC News is in Social and only Maps is in Travel.
-    # I think these are OK though since they are distinct, the idea is grouping similar apps
+    app_classes = ['Social', 'Productivity', 'Entertainment']
+    app_to_class = {'Facebook': 'Social', 'Gmail': 'Productivity', 'Inbox': 'Productivity',
+                    'Instagram': 'Social', 'Messenger': 'Social',
+                    'Outlook': 'Productivity', 'Snapchat': 'Social', 'Spotify': 'Entertainment',
+                    'Twitter': 'Social', 'WhatsApp': 'Social', 'Yahoo Mail': 'Productivity',
+                    'YouTube': 'Entertainment'}
 
     def create_bins(self, ori_dict, apps, bins, day_of_week):
         new_dict = {}
 
         for app in self.app_classes:
             for time in range(bins):
-                bin_name = app + '-Dur-' + str(time + 1)
+                bin_name = app + '-Pick-' + str(time + 1)
                 new_dict[bin_name] = 0
 
         ori_dict[day_of_week].append(new_dict)
@@ -651,7 +655,10 @@ class PickupsAppClass(ProcessData):
         return ori_dict
 
     def get_bin_name(self, app, bin):
-        return self.app_to_class[app] + '-Dur-' + str(bin + 1)
+        if app in self.app_to_class:
+            return self.app_to_class[app] + '-Pick-' + str(bin + 1)
+        else:
+            return None
 
     def add_info(self, dict, day, bin_name, duration, curr_time):
         return pickups(dict, day, bin_name)
@@ -716,22 +723,25 @@ class AverageDurationPerApp(ProcessData):
 
     def __init__(self, input_file, output_file, time_gran=1440, pop_apps=(), weekdays_split=True, z_score=True,
                  day_lim=7,
-                 selected_days=WEEKDAYS + WEEKENDS, user_lim=10000, agg=False):
+                 selected_days=WEEKDAYS + WEEKENDS, user_lim=10000, agg=False, verbose=False):
 
         super().__init__(input_file, output_file, time_gran, pop_apps, weekdays_split, z_score, day_lim,
-                         selected_days, user_lim, agg)
+                         selected_days, user_lim, agg, verbose)
         self.counts = {}
+        self.acc_avg = {}
 
     def create_bins(self, ori_dict, apps, bins, day_of_week):
 
         new_dict = {}
         self.counts = {}
+        self.acc_avg = {}
 
         for app in apps:
             for time in range(bins):
                 bin_name = app + '-avgDur-' + str(time + 1)
                 new_dict[bin_name] = 0
                 self.counts[bin_name] = 0
+                self.acc_avg[bin_name] = 0
 
         ori_dict[day_of_week].append(new_dict)
 
@@ -741,12 +751,138 @@ class AverageDurationPerApp(ProcessData):
         return app + '-avgDur-' + str(bin + 1)
 
     def add_info(self, dict, day, bin_name, duration, curr_time):
-        curr_day_info = dict.get(day)[-1]
-        curr_avg = curr_day_info.get(bin_name, 0)
         curr_count = self.counts.get(bin_name, 0)
         new_count = curr_count + 1
 
-        new_avg = ((curr_avg * curr_count) + duration) / new_count
+        curr_real_avg = self.acc_avg.get(bin_name, 0)
 
-        dict[day][-1][bin_name] = new_avg
+        new_avg = ((curr_real_avg * curr_count) + duration) / new_count
+
+        dict[day][-1][bin_name] = int(new_avg)  # store int but keep track of the real value in acc_avg
         self.counts[bin_name] = new_count
+        self.acc_avg[bin_name] = new_avg
+
+
+class MeanDurationBetweenPickups(ProcessData):
+
+    def __init__(self, input_file, output_file, time_gran=1440, pop_apps=(), weekdays_split=True, z_score=True,
+                 day_lim=7,
+                 selected_days=WEEKDAYS + WEEKENDS, user_lim=10000, agg=False, verbose=False):
+
+        super().__init__(input_file, output_file, time_gran, pop_apps, weekdays_split, z_score, day_lim,
+                         selected_days, user_lim, agg, verbose)
+        self.first_times = {}
+        self.counts = {}
+
+    def create_bins(self, ori_dict, apps, bins, day_of_week):
+
+        new_dict = {}
+        self.first_times = {}
+        self.counts = {}
+
+        for app in apps:
+            for time in range(bins):
+                bin_name = app + '-avgDurPickup-' + str(time + 1)
+                new_dict[bin_name] = 10000000
+                self.first_times[bin_name] = -1
+                self.counts[bin_name] = 0
+
+        ori_dict[day_of_week].append(new_dict)
+
+        return ori_dict
+
+    def get_bin_name(self, app, bin):
+        return app + '-avgDurPickup-' + str(bin + 1)
+
+    def add_info(self, dict, day, bin_name, duration, curr_time):
+
+        curr_count = self.counts.get(bin_name, 0)
+        new_count = curr_count + 1
+
+        # convert time to timestamp, in seconds
+        curr_time = int(datetime.timestamp(curr_time))
+
+        old_first = self.first_times.get(bin_name, 0)
+        new_first = old_first if old_first != -1 else curr_time
+
+        new_avg = (curr_time - new_first) / new_count
+
+        dict[day][-1][bin_name] = int(new_avg)  # store int but keep track of the real average in acc_avg
+        self.counts[bin_name] = new_count
+        self.first_times[bin_name] = new_first
+
+
+class LastUseTime(ProcessData):
+
+    def create_bins(self, ori_dict, apps, bins, day_of_week):
+        new_dict = {}
+
+        for time in range(bins):
+            bin_name = 'LastUse-' + str(time + 1)
+            new_dict[bin_name] = 0
+
+        ori_dict[day_of_week].append(new_dict)
+
+        return ori_dict
+
+    def get_bin_name(self, app, bin):
+        return 'LastUse-' + str(bin + 1)
+
+    def add_info(self, dict, day, bin_name, duration, curr_time):
+        # get time in seconds in the current day, not the actual timestamp
+        # keep updating everytime to record the last time eventually!
+        # will be 0 of the app is not used
+        curr_seconds = curr_time.hour * 3600 + curr_time.minute * 60 + curr_time.second
+
+        new_info = curr_seconds
+        dict[day][-1][bin_name] = new_info
+
+
+class LastUseTimeApp(ProcessData):
+
+    def create_bins(self, ori_dict, apps, bins, day_of_week):
+        new_dict = {}
+
+        for app in apps:
+            for time in range(bins):
+                bin_name = app + '-LastUse-' + str(time + 1)
+                new_dict[bin_name] = 0
+
+        ori_dict[day_of_week].append(new_dict)
+
+        return ori_dict
+
+    def get_bin_name(self, app, bin):
+        return app + '-LastUse-' + str(bin + 1)
+
+    def add_info(self, dict, day, bin_name, duration, curr_time):
+
+        # get time in seconds in the current day, not the actual timestamp
+        curr_seconds = curr_time.hour * 3600 + curr_time.minute * 60 + curr_time.second
+
+        new_info = curr_seconds
+        dict[day][-1][bin_name] = new_info
+
+
+class Fingerprint(ProcessData):
+
+    def create_bins(self, ori_dict, apps, bins, day_of_week):
+        new_dict = {}
+
+        for app in apps:
+            for time in range(bins):
+                bin_name = app + '-finger-' + str(time + 1)
+                new_dict[bin_name] = 0
+
+        ori_dict[day_of_week].append(new_dict)
+
+        return ori_dict
+
+    def get_bin_name(self, app, bin):
+        return app + '-finger-' + str(bin + 1)
+
+    def add_info(self, dict, day, bin_name, duration, curr_time):
+        day_info = dict[day]
+
+        if day_info:
+            dict[day][-1][bin_name] = 1
